@@ -158,7 +158,7 @@ export abstract class AbstractAsset implements Asset {
 
     protected async assureFile(path: string) {
         const stat = await fs.stat(path).catch(() => undefined);
-        if (stat?.isFile()) {
+        if (stat?.isFile() || stat?.isSymbolicLink()) {
             console.debug(`File ${path} already exists.`);
             return true;
         } else if (stat?.isDirectory()) {
@@ -185,6 +185,20 @@ export abstract class AbstractAsset implements Asset {
         });
 
         return dest;
+    }
+
+    protected async copyRecursive(src: string, destDir: string, options: { strip: number } = { strip: 0 }) {
+        const stat = await fs.stat(src).catch(() => undefined);
+        if (stat?.isFile() || stat?.isSymbolicLink()) {
+            await fs.copyFile(src, path.join(destDir, path.basename(src)));
+        } else if (stat?.isDirectory()) {
+            const content = await fs.readdir(src);
+            const destPath = options.strip ? destDir : path.join(destDir, path.basename(src));
+            await fs.mkdir(destPath, { recursive: true });
+            await Promise.all(
+                content.map(item => this.copyRecursive(path.join(src, item), destPath, { strip: options.strip > 0 ? options.strip - 1 : 0 }))
+            );
+        }
     }
 }
 

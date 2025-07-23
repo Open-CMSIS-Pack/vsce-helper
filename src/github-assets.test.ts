@@ -315,6 +315,7 @@ describe('GitHubRepoAsset', () => {
 
             expect(result).toBe(targetDir);
 
+            console.log(vol.toJSON());
             expect(vol.toJSON()).toEqual(expect.objectContaining({
                 [path.join(targetDir, repoFile)]: repoFileContent,
             }));

@@ -202,10 +202,6 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
     }
 
     public async copyTo(dest: string): Promise<string> {
-        const isFile = async (path: string) => {
-            const stat = await fs.stat(path);
-            return stat.isFile() || stat.isSymbolicLink();
-        };
         const toArray = <T>(value: T | T[] | undefined): T[] => {
             if (Array.isArray(value)) {
                 return value;
@@ -224,17 +220,12 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
 
         const paths = toArray(this.options?.path ?? '');
 
+        await fs.mkdir(dest, { recursive: true });
+
         for (const srcPath of paths) {
             const src = path.join(extracted, srcPath);
-
             console.log(`Copying ${src} to ${dest}`);
-            if (await isFile(src)) {
-                await fs.mkdir(dest, { recursive: true });
-                await fs.copyFile(src, path.join(dest, path.basename(src)));
-            } else {
-                await fs.mkdir(path.dirname(dest), { recursive: true });
-                await fs.rename(src, dest);
-            }
+            await this.copyRecursive(src, dest, { strip: 1 });
         }
 
         return dest;
