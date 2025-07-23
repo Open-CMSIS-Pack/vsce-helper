@@ -341,7 +341,7 @@ describe('GitHubRepoAsset', () => {
             const result = await asset.copyTo(targetDir);
             await asset.dispose();
 
-            expect(result).toBe(path.join(targetDir, repoFile));
+            expect(result).toBe(targetDir);
 
             expect(vol.toJSON()).toEqual(expect.objectContaining({
                 [path.join(targetDir, repoFile)]: repoFileContent,

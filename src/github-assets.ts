@@ -148,7 +148,7 @@ export class GitHubReleaseAsset extends GitHubAsset<GitHubAssetOptions> {
 
 type GitHubRepoAssetOptions = GitHubAssetOptions & {
     ref?: string;
-    path?: string;
+    path?: string | string[];
 };
 
 export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
@@ -178,6 +178,15 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
             const stat = await fs.stat(path);
             return stat.isFile() || stat.isSymbolicLink();
         };
+        const toArray = <T>(value: T | T[] | undefined): T[] => {
+            if (Array.isArray(value)) {
+                return value;
+            }
+            if (value !== undefined) {
+                return [value];
+            }
+            return [];
+        };
 
         const temp = await this.mkTempDir();
         const archive = await this.downloadRepo(temp, this.ref);
@@ -185,16 +194,20 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
 
         this.addDisposable(() => fs.rm(extracted, { recursive: true, force: true }));
 
-        const src = path.join(extracted, this.options?.path ?? '');
+        const paths = toArray(this.options?.path ?? '');
 
-        if (await isFile(src)) {
-            dest = path.join(dest, path.basename(src));
-            await fs.mkdir(dest, { recursive: true });
-        } else {
-            await fs.mkdir(path.dirname(dest), { recursive: true });
+        for (const srcPath of paths) {
+            const src = path.join(extracted, srcPath);
+
+            console.log(`Copying ${src} to ${dest}`);
+            if (await isFile(src)) {
+                await fs.mkdir(dest, { recursive: true });
+                await fs.copyFile(src, path.join(dest, path.basename(src)));
+            } else {
+                await fs.mkdir(path.dirname(dest), { recursive: true });
+                await fs.rename(src, dest);
+            }
         }
-        console.log(`Moving ${src} to ${dest}`);
-        await fs.rename(src, dest);
 
         return dest;
     }
@@ -233,7 +246,6 @@ export class GitHubWorkflowAsset extends GitHubAsset {
 
     protected async downloadArtifact(id: number, downloadFilePath: string) {
         if (!await this.assureFile(downloadFilePath)) {
-            console.debug(`Downloading artifact ${this.artifactName} ...`);
             const octokit = await this.getOctokit();
             const response = await octokit.rest.actions.downloadArtifact({ ...this.repoAndOwner, artifact_id: id, archive_format: 'zip' });
             await fs.mkdir(path.dirname(downloadFilePath), { recursive: true });
@@ -264,6 +276,8 @@ export class GitHubWorkflowAsset extends GitHubAsset {
         if (!artifact) {
             throw new Error(`No artifact found matching ${this.artifactName} in workflow run ${run.id}`);
         }
+
+        console.debug(`Downloading artifact ${this.artifactName} from ${this.workflow}@${run.run_number} ...`);
 
         await this.downloadArtifact(artifact.id, artifactDownloadPath);
 
