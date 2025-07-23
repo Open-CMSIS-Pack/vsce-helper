@@ -139,7 +139,6 @@ export abstract class AbstractAsset implements Asset {
 
     protected async downloadFile(url: URL, downloadFilePath: string, headers: OutgoingHttpHeaders = {}) {
         if (await this.assureFile(downloadFilePath)) {
-            console.debug(`File ${path} already exists, skipping download.`);
             return downloadFilePath;
         }
         console.debug(`Downloading ${url} ...`);
@@ -164,10 +163,32 @@ export interface Downloadable {
     readonly getAsset?: (target: VsceTarget) => Promise<Asset | undefined>;
 }
 
+class DownloadableImpl implements Downloadable {
+    constructor(
+        public readonly name: string,
+        private readonly _destination: string | string[],
+        public readonly getAsset: (target: VsceTarget) => Promise<Asset | undefined>
+    ) {}
+
+    public get destination(): string {
+        if (Array.isArray(this._destination)) {
+            return path.join(...this._destination);
+        }
+        return this._destination;
+    }
+}
+
+interface DownloadableConstructor {
+    new (name: string, destination: string | string[], getAsset: (target: VsceTarget) => Promise<Asset | undefined>): Downloadable;
+}
+
+export const Downloadable: DownloadableConstructor = DownloadableImpl;
+
+
 export interface Downloader<T extends Record<string, Downloadable>> {
     withTargetDir(targetDir: string): Downloader<T>;
     withCacheDir(cacheDir: string | undefined): Downloader<T>;
-    getPackageJson(): Promise<PackageJson | undefined>;
+    getPackageJson<J extends PackageJson = PackageJson>(): Promise<J | undefined>;
     packageManager(): Promise<PackageManager | undefined>;
     defaultCacheDir(): Promise<string | undefined>;
     download(what: keyof T, target: VsceTarget, options?: DownloadOptions): Promise<void>;
@@ -274,7 +295,7 @@ class DownloaderImpl<T extends Record<string, Downloadable>> implements Download
         }>;
     }
 
-    public async getPackageJson() {
+    public async getPackageJson<J extends PackageJson = PackageJson>() : Promise<J | undefined> {
         if (this.packageJson === undefined) {
             const packageJsonPath = path.join(this.projectDir, 'package.json');
             const packageJsonContent = await fs.readFile(packageJsonPath, { encoding: 'utf-8' });
@@ -282,9 +303,9 @@ class DownloaderImpl<T extends Record<string, Downloadable>> implements Download
                 /"file:([^"]+)"/gm,
                 (_, ...args) => `"file:${path.resolve(this.projectDir, args[0])}"`
             );
-            this.packageJson = JSON.parse(replaced) as PackageJson;
+            this.packageJson = JSON.parse(replaced) as J;
         }
-        return this.packageJson;
+        return this.packageJson as J;
     }
 
     public async packageManager(): Promise<PackageManager | undefined> {

@@ -7,10 +7,16 @@
   "license": "Apache-2.0",
   "description": "",
   "keywords": [],
-  "repository": "https://github.com/Open-CMSIS-Pack/vsce-helper",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Open-CMSIS-Pack/vsce-helper.git"
+  },
   "qna": "https://github.com/Open-CMSIS-Pack/vsce-helper/issues",
   "bugs": {
     "url": "https://github.com/Open-CMSIS-Pack/vsce-helper/issues"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

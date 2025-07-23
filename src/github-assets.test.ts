@@ -292,18 +292,21 @@ describe('GitHubRepoAsset', () => {
 
     describe('copyTo', async () => {
 
-        it('issues download of repository snapshot', async () => {
+        it('issues download of repository snapshot and copy subfolder', async () => {
             const targetDir = faker.system.directoryPath();
             const owner = faker.lorem.word();
             const repo = faker.lorem.word();
             const ref = `heads/${faker.git.branch()}`;
             const repoFolder = faker.system.directoryPath();
+            const repoFile = faker.system.commonFileName('txt');
+            const repoFileContent = faker.lorem.paragraph();
 
             const asset = new GitHubRepoAssetTest(owner, repo, { ref: ref, path: repoFolder });
 
             asset.extractArchive.mockImplementation(async (_archiveFile: string, dest?: string, _options: Options = {}) => {
                 dest = dest ?? faker.system.directoryPath();
                 fs.mkdirSync(path.join(dest, repoFolder), { recursive: true });
+                fs.writeFileSync(path.join(dest, repoFolder, repoFile), repoFileContent);
                 return dest;
             });
 
@@ -313,7 +316,35 @@ describe('GitHubRepoAsset', () => {
             expect(result).toBe(targetDir);
 
             expect(vol.toJSON()).toEqual(expect.objectContaining({
-                [path.join(targetDir, path.basename(repoFolder))]: null,
+                [path.join(targetDir, repoFile)]: repoFileContent,
+            }));
+        });
+
+        it('issues download of repository snapshot and copy single file', async () => {
+            const targetDir = faker.system.directoryPath();
+            const owner = faker.lorem.word();
+            const repo = faker.lorem.word();
+            const ref = `heads/${faker.git.branch()}`;
+            const repoFolder = faker.system.directoryPath();
+            const repoFile = faker.system.commonFileName('txt');
+            const repoFileContent = faker.lorem.paragraph();
+
+            const asset = new GitHubRepoAssetTest(owner, repo, { ref: ref, path: path.join(repoFolder, repoFile) });
+
+            asset.extractArchive.mockImplementation(async (_archiveFile: string, dest?: string, _options: Options = {}) => {
+                dest = dest ?? faker.system.directoryPath();
+                fs.mkdirSync(path.join(dest, repoFolder), { recursive: true });
+                fs.writeFileSync(path.join(dest, repoFolder, repoFile), repoFileContent);
+                return dest;
+            });
+
+            const result = await asset.copyTo(targetDir);
+            await asset.dispose();
+
+            expect(result).toBe(path.join(targetDir, repoFile));
+
+            expect(vol.toJSON()).toEqual(expect.objectContaining({
+                [path.join(targetDir, repoFile)]: repoFileContent,
             }));
         });
 
@@ -321,7 +352,7 @@ describe('GitHubRepoAsset', () => {
 
 });
 
-describe('GitHubRepoAsset', () => {
+describe('GitHubWorkflowAsset', () => {
 
     class GitHubWorkflowAssetTest extends GitHubWorkflowAsset {
         public octokitMock: MockedObjectDeep<Octokit> | undefined = undefined;

@@ -15,7 +15,7 @@
  */
 
 export { downloadFile } from './file-download.ts';
-export { Downloader, type Downloadable, type Asset } from './downloader.ts';
+export { Downloader, Downloadable, type Asset } from './downloader.ts';
 export { PACKAGE_MANAGER, VSCE_TARGETS, type PackageManager, type VsceTarget } from './downloader.ts';
 export { GitHubReleaseAsset, GitHubRepoAsset, GitHubWorkflowAsset } from './github-assets.ts';
 export { ArchiveFileAsset, LocalFileAsset, WebFileAsset } from './file-assets.ts';

@@ -174,6 +174,11 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
     }
 
     public async copyTo(dest: string): Promise<string> {
+        const isFile = async (path: string) => {
+            const stat = await fs.stat(path);
+            return stat.isFile() || stat.isSymbolicLink();
+        };
+
         const temp = await this.mkTempDir();
         const archive = await this.downloadRepo(temp, this.ref);
         const extracted = await this.extractArchive(archive, path.join(temp, 'repo'), { strip: 1 });
@@ -181,9 +186,15 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
         this.addDisposable(() => fs.rm(extracted, { recursive: true, force: true }));
 
         const src = path.join(extracted, this.options?.path ?? '');
+
+        if (await isFile(src)) {
+            dest = path.join(dest, path.basename(src));
+            await fs.mkdir(dest, { recursive: true });
+        } else {
+            await fs.mkdir(path.dirname(dest), { recursive: true });
+        }
         console.log(`Moving ${src} to ${dest}`);
-        await fs.mkdir(dest, { recursive: true });
-        await fs.rename(src, path.join(dest, path.basename(src)));
+        await fs.rename(src, dest);
 
         return dest;
     }
