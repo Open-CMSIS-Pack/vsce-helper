@@ -23,14 +23,26 @@ import path from 'node:path';
 import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
 import { Octokit } from 'octokit';
 
+/** Options to access assets at GitHub */
 type GitHubAssetOptions = {
+    /** GitHub personal access token for authentication. */
     token?: string;
 };
 
+/**
+ * Base class for GitHub assets.
+ * Provides common functionality for downloading and managing GitHub assets.
+ */
 export abstract class GitHubAsset<T extends GitHubAssetOptions = GitHubAssetOptions> extends AbstractAsset {
     private static readonly OCTOKIT = new Map<string, Octokit>();
     private readonly refs = new Map<string, string>();
 
+    /**
+     * Creates an instance of GitHubAsset.
+     * @param owner The owner (or org) of the repository.
+     * @param repo The name of the repository.
+     * @param options Options for the asset.
+     */
     constructor(
         protected readonly owner: string,
         protected readonly repo: string,
@@ -84,9 +96,20 @@ export abstract class GitHubAsset<T extends GitHubAssetOptions = GitHubAssetOpti
 
 type GitHubRelease = RestEndpointMethodTypes['repos']['getReleaseByTag']['response']['data'];
 
+/**
+ * Represents a GitHub release asset.
+ */
 export class GitHubReleaseAsset extends GitHubAsset<GitHubAssetOptions> {
     private releasePromise: Promise<GitHubRelease | undefined> | undefined;
 
+    /**
+     * Creates an instance of GitHubReleaseAsset.
+     * @param owner The owner (or org) of the repository.
+     * @param repo The name of the repository.
+     * @param tag The tag (or regex) to match the release.
+     * @param assetName The name of the asset to download.
+     * @param options Options for the asset.
+     */
     constructor(
         owner: string,
         repo: string,
@@ -146,8 +169,13 @@ export class GitHubReleaseAsset extends GitHubAsset<GitHubAssetOptions> {
 
 }
 
+/**
+ * Options for downloading a GitHub repository snapshot.
+ */
 type GitHubRepoAssetOptions = GitHubAssetOptions & {
+    /** The git ref (heads/<branch>, or tags/<tag>) */
     ref?: string;
+    /** File(s) or folder(s) to be copied from the repository to the destination */
     path?: string | string[];
 };
 
@@ -214,9 +242,22 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
 
 }
 
+/**
+ * Represents a GitHub workflow artifact.
+ */
 export class GitHubWorkflowAsset extends GitHubAsset {
     private lastWorkflowRunPromise: Promise<RestEndpointMethodTypes['actions']['listWorkflowRuns']['response']['data']['workflow_runs'][number]> | undefined;
 
+    /**
+     * Creates an instance of GitHubWorkflowAsset.
+     * If the workflow artifact is an archive, consider chaining with `ArchiveFileAsset`.
+     *
+     * @param owner The owner (or org) of the repository.
+     * @param repo The name of the repository.
+     * @param workflow The name of the workflow (e.g., build.yml).
+     * @param artifactName The name of the artifact to download.
+     * @param options Options for the asset.
+     */
     constructor(
         owner: string,
         repo: string,

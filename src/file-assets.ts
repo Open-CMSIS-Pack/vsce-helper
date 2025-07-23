@@ -19,8 +19,16 @@ import path from 'node:path';
 import { OutgoingHttpHeaders } from 'node:http';
 import fs from 'node:fs/promises';
 
+/**
+ * Asset to be extracted from an archive file.
+ */
 export class ArchiveFileAsset extends AbstractAsset {
 
+    /**
+     * Creates an instance of ArchiveFileAsset.
+     * @param subject Another asset that provides the archive file.
+     * @param strip The number of leading components to strip from the file paths when extracting.
+     */
     constructor(
         protected readonly subject: Asset,
         protected readonly strip: number = 0,
@@ -45,8 +53,19 @@ export class ArchiveFileAsset extends AbstractAsset {
 
 }
 
+/**
+ * Asset that represents a file available at a URL.
+ */
 export class WebFileAsset extends AbstractAsset {
 
+    /**
+     * Creates an instance of WebFileAsset.
+     * If the file is an archive, consider chaining with `ArchiveFileAsset`.
+     * @param url The URL to download the file from.
+     * @param filename The filename to save the downloaded file as. If not provided, the filename will be derived from the URL.
+     * @param _version The version of the file, if applicable.
+     * @param headers Additional HTTP headers to include in the request when downloading the file, e.g. for authentication.
+     */
     constructor(
         protected readonly url: URL,
         protected readonly filename?: string,
@@ -72,8 +91,17 @@ export class WebFileAsset extends AbstractAsset {
 
 }
 
+/**
+ * Asset that represents a local file on the filesystem.
+ */
 export class LocalFileAsset extends AbstractAsset {
 
+    /**
+     * Creates an instance of LocalFileAsset.
+     * If the file is an archive, consider chaining with `ArchiveFileAsset`.
+     * @param filepath The path to the local file.
+     * @param targetName The name to use for the file when copying, if different from the original.
+     */
     constructor(
         protected readonly filepath: string,
         protected readonly targetName?: string,

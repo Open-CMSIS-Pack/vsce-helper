@@ -33,6 +33,9 @@ const exec = promisify(execAsync);
 export const PACKAGE_MANAGER = ['npm', 'yarn'] as const;
 export type PackageManager = typeof PACKAGE_MANAGER[number];
 
+/**
+ * VS Code extension targets for VSCE packaging.
+ */
 export const VSCE_TARGETS = [
     'win32-x64',
     'win32-arm64',
@@ -43,11 +46,39 @@ export const VSCE_TARGETS = [
 ] as const;
 export type VsceTarget = typeof VSCE_TARGETS[number];
 
+/**
+ * Represents a single asset.
+ */
 export interface Asset {
+    /** Version of this asset */
     version: Promise<string | undefined> | string | undefined;
+
+    /** Cache ID for the asset */
     cacheId: Promise<string | undefined> | string | undefined;
+
+    /**
+     * Copy the asset into the given directory.
+     *
+     * If no directory is given, the asset is copied either
+     * - to a temporary directory which is purged on disposal (see dispose).
+     * - to the cache directory if available (see withCacheDir), or
+     *
+     * @param dest Target directory to copy the asset to.
+     * @returns The path to the copied asset.
+     */
     copyTo(dest?: string): Promise<string>;
+
+    /**
+     * Set the cache directory for the asset.
+     *
+     * @param cacheDir Cache directory to use for the asset.
+     * @returns The asset itself, allowing for method chaining.
+     */
     withCacheDir(cacheDir: string | undefined): Asset;
+
+    /**
+     * Dispose of the asset, cleaning up any resources it holds.
+     */
     dispose(): Promise<void> | void;
 }
 
@@ -157,9 +188,26 @@ export abstract class AbstractAsset implements Asset {
     }
 }
 
+/**
+ * Represents a downloadable item.
+ */
 export interface Downloadable {
+    /**
+     * Name of the downloadable item.
+     */
     readonly name: string;
+
+    /**
+     * Destination directory where the item will be downloaded to,
+     * relative to the base tool folder.
+     */
     readonly destination: string;
+
+    /**
+     * Retrieves the asset for the given target.
+     * @param target The VSCE target for which to retrieve the asset.
+     * @returns A promise that resolves to the asset, or undefined if not found.
+     */
     readonly getAsset?: (target: VsceTarget) => Promise<Asset | undefined>;
 }
 
@@ -184,14 +232,64 @@ interface DownloadableConstructor {
 
 export const Downloadable: DownloadableConstructor = DownloadableImpl;
 
-
+/**
+ * Downloader interface for managing the download of tools.
+ */
 export interface Downloader<T extends Record<string, Downloadable>> {
+    /**
+     * Set the project directory for the downloader,
+     * defaults to the current working directory.
+     * @param projectDir The project root directory.
+     * @return The downloader instance for method chaining.
+     */
+    withProjectDir(projectDir: string): Downloader<T>;
+
+    /**
+     * Set the target directory for the downloader,
+     * defaults to the tools directory.
+     * @param targetDir The target directory where the tools will be downloaded to.
+     * @return The downloader instance for method chaining.
+     */
     withTargetDir(targetDir: string): Downloader<T>;
+
+    /**
+     * Set the cache directory for the downloader, defaults to undefined.
+     * If set, downloaded files will be cached there for later reuse.
+     * @param cacheDir The cache directory for downloaded tools.
+     * @return The downloader instance for method chaining.
+     */
     withCacheDir(cacheDir: string | undefined): Downloader<T>;
+
+    /**
+     * Get the package.json file of the project, i.e., <projectDir>/package.json.
+     * @template J The type of the package.json file, defaults to PackageJson.
+     * @returns A promise that resolves to the package.json content or undefined if not found.
+     */
     getPackageJson<J extends PackageJson = PackageJson>(): Promise<J | undefined>;
+
+    /**
+     * Get the package manager used in the project, based on the package.json file.
+     */
     packageManager(): Promise<PackageManager | undefined>;
+
+    /**
+     * Get the default cache directory based on the package manager.
+     */
     defaultCacheDir(): Promise<string | undefined>;
+
+    /**
+     * Download a specific tool for the given target.
+     * @param what The key of the tool to download.
+     * @param target The VSCE target to download the tool for.
+     * @param options Options for the download process.
+     */
     download(what: keyof T, target: VsceTarget, options?: DownloadOptions): Promise<void>;
+
+    /**
+     * Run the command line interface for the downloader.
+     * @param argv The command line arguments, defaults to process.argv.
+     */
+
     run(argv?: string[]): Promise<void>;
 }
 
@@ -224,7 +322,9 @@ async function maybeReadFile(filePath: string) {
     }
 };
 
+/** Download options */
 type DownloadOptions = {
+     /** Force download even if the tool is already present. */
     force?: boolean;
 };
 
