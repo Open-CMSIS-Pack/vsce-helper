@@ -176,7 +176,7 @@ export abstract class AbstractAsset implements Asset {
         return downloadFile(url.toString(), downloadFilePath, headers);
     }
 
-    protected async extractArchive(archiveFile: string, dest?: string, options?: Record<string, unknown>) {
+    protected async extractArchive(archiveFile: string, dest?: string, options?: decompress.DecompressOptions) {
         dest = await this.mkDest(dest);
         console.debug(`Extracting to ${dest} ...`);
 

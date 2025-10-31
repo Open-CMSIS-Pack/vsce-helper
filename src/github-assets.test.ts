@@ -22,6 +22,7 @@ import { downloadFile } from './file-download.ts';
 import { faker } from '@faker-js/faker';
 import { Octokit } from 'octokit';
 import path from 'path';
+import { DecompressOptions } from 'decompress';
 import { fs, vol } from 'memfs';
 
 vitest.mock('node:fs/promises', () => import('./__mocks__/fs/promises.js'));
@@ -287,7 +288,7 @@ describe('GitHubRepoAsset', () => {
         }
 
         public downloadRepo = vitest.fn(async (dest: string, _ref: string)  => path.join(dest, 'repo.tar.gz'));
-        public extractArchive = vitest.fn(async (_archiveFile: string, dest?: string, _options: Record<string, unknown> = {}) => dest ?? faker.system.directoryPath());
+        public extractArchive = vitest.fn(async (_archiveFile: string, dest?: string, _options: DecompressOptions = {}) => dest ?? faker.system.directoryPath());
     }
 
     describe('copyTo', async () => {
@@ -303,7 +304,7 @@ describe('GitHubRepoAsset', () => {
 
             const asset = new GitHubRepoAssetTest(owner, repo, { ref: ref, path: repoFolder });
 
-            asset.extractArchive.mockImplementation(async (_archiveFile: string, dest?: string, _options: Record<string, unknown> = {}) => {
+            asset.extractArchive.mockImplementation(async (_archiveFile: string, dest?: string, _options: DecompressOptions = {}) => {
                 dest = dest ?? faker.system.directoryPath();
                 fs.mkdirSync(path.join(dest, repoFolder), { recursive: true });
                 fs.writeFileSync(path.join(dest, repoFolder, repoFile), repoFileContent);
@@ -331,7 +332,7 @@ describe('GitHubRepoAsset', () => {
 
             const asset = new GitHubRepoAssetTest(owner, repo, { ref: ref, path: path.join(repoFolder, repoFile) });
 
-            asset.extractArchive.mockImplementation(async (_archiveFile: string, dest?: string, _options: Record<string, unknown> = {}) => {
+            asset.extractArchive.mockImplementation(async (_archiveFile: string, dest?: string, _options: DecompressOptions = {}) => {
                 dest = dest ?? faker.system.directoryPath();
                 fs.mkdirSync(path.join(dest, repoFolder), { recursive: true });
                 fs.writeFileSync(path.join(dest, repoFolder, repoFile), repoFileContent);
