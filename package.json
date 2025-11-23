@@ -47,7 +47,7 @@
     "@types/node": "^20.19.25",
     "@types/yargs": "^17.0.35",
     "@vitest/coverage-v8": "^4.0.9",
-    "@vitest/ui": "^4.0.9",
+    "@vitest/ui": "^4.0.13",
     "eslint": "^9.39.1",
     "memfs": "^4.51.0",
     "nock": "^14.0.6",
