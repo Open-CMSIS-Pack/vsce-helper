@@ -296,11 +296,10 @@ export class GitHubWorkflowAsset extends GitHubAsset {
             .then(run => `${this.owner}/${this.repo}/${this.workflow}/${run.id}`);
     }
 
-    public async copyTo(dest?: string) {
+    public async copyTo(_dest?: string) {
         const octokit = await this.getOctokit();
 
         const temp = await this.mkTempDir();
-        const artifactDownloadPath = path.join(temp, `${this.artifactName}.zip`);
 
         const run = await this.lastWorkflowRun;
         const artifacts = await octokit.rest.actions.listWorkflowRunArtifacts({ ...this.repoAndOwner, run_id: run.id });
@@ -309,10 +308,9 @@ export class GitHubWorkflowAsset extends GitHubAsset {
             throw new Error(`No artifact found matching ${this.artifactName} in workflow run ${run.id}`);
         }
 
-        console.debug(`Downloading artifact ${this.artifactName} from ${this.workflow}@${run.run_number} ...`);
+        const artifactDownloadPath = path.join(temp, `${artifact.name}.zip`);
+        console.debug(`Downloading artifact ${artifact.name} from ${this.workflow}@${run.run_number} ...`);
 
-        await this.downloadArtifact(artifact.id, artifactDownloadPath);
-
-        return this.extractArchive(artifactDownloadPath, dest);
+        return this.downloadArtifact(artifact.id, artifactDownloadPath);
     }
 }
