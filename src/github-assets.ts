@@ -241,7 +241,9 @@ export class GitHubWorkflowAsset extends GitHubAsset {
 
     /**
      * Creates an instance of GitHubWorkflowAsset.
-     * If the workflow artifact is an archive, consider chaining with `ArchiveFileAsset`.
+     *
+     * Note: If the workflow artifact is an archive, it gets automatically extracted.
+     * Hence, do not chain with `ArchiveFileAsset`.
      *
      * @param owner The owner (or org) of the repository.
      * @param repo The name of the repository.
@@ -296,7 +298,7 @@ export class GitHubWorkflowAsset extends GitHubAsset {
             .then(run => `${this.owner}/${this.repo}/${this.workflow}/${run.id}`);
     }
 
-    public async copyTo(_dest?: string) {
+    public async copyTo(dest?: string) {
         const octokit = await this.getOctokit();
 
         const temp = await this.mkTempDir();
@@ -311,6 +313,8 @@ export class GitHubWorkflowAsset extends GitHubAsset {
         const artifactDownloadPath = path.join(temp, `${artifact.name}.zip`);
         console.debug(`Downloading artifact ${artifact.name} from ${this.workflow}@${run.run_number} ...`);
 
-        return this.downloadArtifact(artifact.id, artifactDownloadPath);
+        await this.downloadArtifact(artifact.id, artifactDownloadPath);
+
+        return this.extractArchive(artifactDownloadPath, dest);
     }
 }

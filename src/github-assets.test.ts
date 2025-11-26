@@ -642,6 +642,7 @@ describe('GitHubWorkflowAsset', () => {
 
             expect(result).toBe(targetDir);
             expect(asset.downloadArtifact).toHaveBeenCalledWith(artifactId, expect.any(String));
+            expect(asset.extractArchive).toHaveBeenCalledWith(asset.downloadArtifact.mock.calls[0][1], targetDir);
         });
 
     });
