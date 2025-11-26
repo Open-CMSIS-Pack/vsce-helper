@@ -61,7 +61,7 @@
     "node-fetch": "^3.3.2",
     "octokit": "^5.0.3",
     "tempfile": "^5.0.0",
-    "type-fest": "^4.41.0",
+    "type-fest": "^5.2.0",
     "yargs": "^18.0.0"
   },
   "downloader": {
