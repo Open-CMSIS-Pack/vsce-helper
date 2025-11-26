@@ -246,7 +246,9 @@ export class GitHubWorkflowAsset extends GitHubAsset {
      * @param owner The owner (or org) of the repository.
      * @param repo The name of the repository.
      * @param workflow The name of the workflow (e.g., build.yml).
-     * @param artifactName The name of the artifact to download.
+     * @param artifactName The name of the artifact to download. This string can be be
+     * a regular expression. In case of multiple matches, only the first in the list is
+     * downloaded and extracted.
      * @param options Options for the asset.
      */
     constructor(
@@ -300,7 +302,6 @@ export class GitHubWorkflowAsset extends GitHubAsset {
         const octokit = await this.getOctokit();
 
         const temp = await this.mkTempDir();
-        const artifactDownloadPath = path.join(temp, `${this.artifactName}.zip`);
 
         const run = await this.lastWorkflowRun;
         const artifacts = await octokit.rest.actions.listWorkflowRunArtifacts({ ...this.repoAndOwner, run_id: run.id });
@@ -309,7 +310,8 @@ export class GitHubWorkflowAsset extends GitHubAsset {
             throw new Error(`No artifact found matching ${this.artifactName} in workflow run ${run.id}`);
         }
 
-        console.debug(`Downloading artifact ${this.artifactName} from ${this.workflow}@${run.run_number} ...`);
+        const artifactDownloadPath = path.join(temp, `${artifact.name}.zip`);
+        console.debug(`Downloading artifact ${artifact.name} from ${this.workflow}@${run.run_number} ...`);
 
         await this.downloadArtifact(artifact.id, artifactDownloadPath);
 
