@@ -241,14 +241,14 @@ export class GitHubWorkflowAsset extends GitHubAsset {
 
     /**
      * Creates an instance of GitHubWorkflowAsset.
-     *
-     * Note: If the workflow artifact is an archive, it gets automatically extracted.
-     * Hence, do not chain with `ArchiveFileAsset`.
+     * If the workflow artifact is an archive, consider chaining with `ArchiveFileAsset`.
      *
      * @param owner The owner (or org) of the repository.
      * @param repo The name of the repository.
      * @param workflow The name of the workflow (e.g., build.yml).
-     * @param artifactName The name of the artifact to download.
+     * @param artifactName The name of the artifact to download. This string can be be
+     * a regular expression. In case of multiple matches, only the first in the list is
+     * downloaded and extracted.
      * @param options Options for the asset.
      */
     constructor(
