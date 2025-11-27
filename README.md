@@ -89,7 +89,7 @@ Refer to the JSDOC API documentation for more details about each function call a
 
 ### Downloader
 
-Main class to make up a project specific downloader script:
+Main class to create a project specific downloader script:
 
 ```ts
 // Create and configure instance
@@ -167,8 +167,13 @@ GitHub Assets are artifacts fetched from a GitHub repository.
 Every asset accepts optional `<options>`:
 
 - `token` to specify the `GITHUB_TOKEN` to be used for GitHub API access
+  
+  ⚠ When using the default `GITHUB_TOKEN` from within a GitHub workflow
+  mind to set the required access `permissions:` for the different asset types.
 
 #### GitHubReleaseAsset
+
+⚠ Workflow Permissions: `contents: read`
 
 An artifact attached to a GitHub Release to be downloaded:
 
@@ -191,6 +196,8 @@ archiveFileAsset.copyTo(<dest>);
 This extracts the release asset archive into the `<dest>` folder.
 
 #### GitHubRepoAsset
+
+⚠ Workflow Permissions: `contents: read`
 
 Fetch the content of a GitHub repository:
 
@@ -215,7 +222,9 @@ gitHubRepoAsset.copyTo(<dest>);
 
 #### GitHubWorkflowAsset
 
-Fetch an asset attached to a GitHub Worklow run:
+⚠ Workflow Permissions: `actions: read`
+
+Fetch an asset attached to a GitHub Workflow run:
 
 ```ts
 const gitHubWorkflowAsset = new GitHubWorkflowAsset(<owner>, <repo>, <workflow>, <artifactName>, [<options>]);
