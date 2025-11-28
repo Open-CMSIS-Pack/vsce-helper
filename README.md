@@ -84,7 +84,7 @@ From within `package.json` the script can be used like
 
 ## Reference
 
-This sections gives a comprehensive reference of available asset classes.
+This section gives a comprehensive reference of available asset classes.
 Refer to the JSDOC API documentation for more details about each function call and parameters.
 
 ### Downloader
@@ -183,7 +183,7 @@ githubReleaseAsset.copyTo(<dest>);
 ```
 
 The GitHub repository `<owner>/<repo>` is searched for a release tagged as `<tag>`. If a regexp matching multiple
-releases the latest one is used. The release assets are search for one named `<assetName>` which gets downloaded
+releases the latest one is used. The release assets are searched for one named `<assetName>` which gets downloaded
 into `<dest>` folder.
 
 Chaining up with `ArchiveFileAsset`:
@@ -231,7 +231,7 @@ const gitHubWorkflowAsset = new GitHubWorkflowAsset(<owner>, <repo>, <workflow>,
 gitHubWorkflowAsset.copyTo(<dest>);
 ```
 
-The repository `<owner>/<repo>` is search for most recent run of `<workflow>` (e.g., `build.yml`). If found, the run
+The repository `<owner>/<repo>` is searched for most recent run of `<workflow>` (e.g., `build.yml`). If found, the run
 is inspected for an attached `<artifactName>` which gets downloaded and extracted to `<dest>`. I.e., GitHub by default
 puts everything into Zip archives. This top-level archive is extracted so that the files appear exactly the way they
 appeared on the runner during the workflow run.
