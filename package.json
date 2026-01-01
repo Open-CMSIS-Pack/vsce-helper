@@ -60,7 +60,7 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
-    "fast-extract": "^1.9.1",
+    "fast-extract": "^1.14.2",
     "node-fetch": "^3.3.2",
     "octokit": "^5.0.3",
     "tempfile": "^5.0.0",
