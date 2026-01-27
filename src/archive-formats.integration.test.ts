@@ -83,297 +83,117 @@ describe('Archive Format Integration Tests', () => {
         }
     });
 
-    describe('ZIP format', () => {
-        it('should extract .zip archive correctly', async () => {
-            const archivePath = path.join(tempDir, 'test.zip');
-            const extractPath = path.join(tempDir, 'extracted-zip');
+    const archiveCases = [
+        {
+            name: 'zip',
+            ext: '.zip',
+            create: async (archivePath: string, _strip: number) => {
+                return new Promise<void>((resolve, reject) => {
+                    const output = createWriteStream(archivePath);
+                    const archive = archiver('zip', { zlib: { level: 9 } });
+                    output.on('close', () => resolve());
+                    archive.on('error', reject);
+                    archive.pipe(output);
+                    // Always use the same structure for test
+                    archive.directory(path.join(testDataDir, 'root'), false);
+                    archive.finalize();
+                });
+            },
+            strip: [0, 2],
+            expected: (extractPath: string, _strip: number) => [
+                path.join(extractPath, 'file1.txt'),
+                path.join(extractPath, 'file2.txt'),
+                path.join(extractPath, 'subdir', 'file3.txt'),
+            ],
+        },
+        {
+            name: 'tar.gz',
+            ext: '.tar.gz',
+            create: async (archivePath: string, _strip: number) => {
+                await tarModule.create({ gzip: true, file: archivePath, cwd: testDataDir }, ['root']);
+            },
+            strip: [0, 1],
+            expected: (extractPath: string, strip: number) => strip === 1
+                ? [
+                    path.join(extractPath, 'file1.txt'),
+                    path.join(extractPath, 'file2.txt'),
+                    path.join(extractPath, 'subdir', 'file3.txt'),
+                ]
+                : [
+                    path.join(extractPath, 'root', 'file1.txt'),
+                    path.join(extractPath, 'root', 'file2.txt'),
+                    path.join(extractPath, 'root', 'subdir', 'file3.txt'),
+                ],
+        },
+        {
+            name: 'tar.bz2',
+            ext: '.tar.bz2',
+            create: async (archivePath: string, _strip: number) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await tarModule.create({ bzip2: true, file: archivePath, cwd: testDataDir } as any, ['root']);
+            },
+            strip: [0, 1],
+            expected: (extractPath: string, strip: number) => strip === 1
+                ? [
+                    path.join(extractPath, 'file1.txt'),
+                    path.join(extractPath, 'subdir', 'file3.txt'),
+                ]
+                : [
+                    path.join(extractPath, 'root', 'file1.txt'),
+                    path.join(extractPath, 'root', 'file2.txt'),
+                    path.join(extractPath, 'root', 'subdir', 'file3.txt'),
+                ],
+        },
+        {
+            name: 'tar.xz',
+            ext: '.tar.xz',
+            create: async (archivePath: string, _strip: number) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await tarModule.create({ xz: true, file: archivePath, cwd: testDataDir } as any, ['root']);
+            },
+            strip: [0, 1],
+            expected: (extractPath: string, strip: number) => strip === 1
+                ? [
+                    path.join(extractPath, 'file1.txt'),
+                    path.join(extractPath, 'file2.txt'),
+                    path.join(extractPath, 'subdir', 'file3.txt'),
+                ]
+                : [
+                    path.join(extractPath, 'root', 'file1.txt'),
+                    path.join(extractPath, 'root', 'file2.txt'),
+                    path.join(extractPath, 'root', 'subdir', 'file3.txt'),
+                ],
+        },
+        {
+            name: 'tar',
+            ext: '.tar',
+            create: async (archivePath: string, _strip: number) => {
+                await tarModule.create({ file: archivePath, cwd: testDataDir }, ['root']);
+            },
+            strip: [0],
+            expected: (extractPath: string, _strip: number) => [
+                path.join(extractPath, 'root', 'file1.txt'),
+                path.join(extractPath, 'root', 'file2.txt'),
+                path.join(extractPath, 'root', 'subdir', 'file3.txt'),
+            ],
+        },
+    ];
 
-            // Create ZIP archive
-            await new Promise<void>((resolve, reject) => {
-                const output = createWriteStream(archivePath);
-                const archive = archiver('zip', { zlib: { level: 9 } });
-
-                output.on('close', () => resolve());
-                archive.on('error', reject);
-
-                archive.pipe(output);
-                archive.directory(path.join(testDataDir, 'root'), false);
-                archive.finalize();
+    archiveCases.forEach(({ name, ext, create, strip, expected }) => {
+        strip.forEach(stripLevel => {
+            it(`should extract ${name} archive${stripLevel ? ` with strip=${stripLevel}` : ''} correctly`, async () => {
+                const archivePath = path.join(tempDir, `test${stripLevel ? '-strip' : ''}${ext}`);
+                const extractPath = path.join(tempDir, `extracted-${name}${stripLevel ? '-strip' : ''}`);
+                await create(archivePath, stripLevel);
+                const asset = new ArchiveTestAsset(archivePath);
+                const archiveAsset = new ArchiveFileAsset(asset, stripLevel);
+                const result = await archiveAsset.copyTo(extractPath);
+                expect(result).toBe(extractPath);
+                for (const filePath of expected(extractPath, stripLevel)) {
+                    expect(existsSync(filePath)).toBe(true);
+                }
+                await archiveAsset.dispose();
             });
-
-            // Create asset and extract
-            const testAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(testAsset);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'file2.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'subdir', 'file3.txt'))).toBe(true);
-
-            const content1 = await fs.readFile(path.join(extractPath, 'file1.txt'), 'utf-8');
-            expect(content1).toBe('Content of file 1');
-
-            const content3 = await fs.readFile(path.join(extractPath, 'subdir', 'file3.txt'), 'utf-8');
-            expect(content3).toBe('Content of file 3');
-
-            await archiveAsset.dispose();
-        });
-
-        it('should extract .zip archive with strip option', async () => {
-            const archivePath = path.join(tempDir, 'test-strip.zip');
-            const extractPath = path.join(tempDir, 'extracted-zip-strip');
-
-            // Create ZIP archive with nested structure
-            await new Promise<void>((resolve, reject) => {
-                const output = createWriteStream(archivePath);
-                const archive = archiver('zip', { zlib: { level: 9 } });
-
-                output.on('close', () => resolve());
-                archive.on('error', reject);
-
-                archive.pipe(output);
-                archive.directory(testDataDir, 'test-data');
-                archive.finalize();
-            });
-
-            // Create asset and extract with strip=2 (removes 'test-data/root')
-            const localAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(localAsset, 2);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction with stripped directories
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'file2.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'subdir', 'file3.txt'))).toBe(true);
-
-            await archiveAsset.dispose();
-        });
-    });
-
-    describe('TAR.GZ format', () => {
-        it('should extract .tar.gz archive correctly', async () => {
-            const archivePath = path.join(tempDir, 'test.tar.gz');
-            const extractPath = path.join(tempDir, 'extracted-targz');
-
-            // Create TAR.GZ archive
-            await tarModule.create(
-                {
-                    gzip: true,
-                    file: archivePath,
-                    cwd: testDataDir,
-                },
-                ['root']
-            );
-
-            // Create asset and extract
-            const localAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(localAsset);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'root', 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'root', 'file2.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'root', 'subdir', 'file3.txt'))).toBe(true);
-
-            const content1 = await fs.readFile(path.join(extractPath, 'root', 'file1.txt'), 'utf-8');
-            expect(content1).toBe('Content of file 1');
-
-            await archiveAsset.dispose();
-        });
-
-        it('should extract .tar.gz archive with strip option', async () => {
-            const archivePath = path.join(tempDir, 'test-strip.tar.gz');
-            const extractPath = path.join(tempDir, 'extracted-targz-strip');
-
-            // Create TAR.GZ archive
-            await tarModule.create(
-                {
-                    gzip: true,
-                    file: archivePath,
-                    cwd: testDataDir,
-                },
-                ['root']
-            );
-
-            // Create asset and extract with strip=1 (removes 'root')
-            const localAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(localAsset, 1);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction with stripped directory
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'file2.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'subdir', 'file3.txt'))).toBe(true);
-
-            await archiveAsset.dispose();
-        });
-    });
-
-    describe('TAR.BZ2 format', () => {
-        it('should extract .tar.bz2 archive correctly', async () => {
-            const archivePath = path.join(tempDir, 'test.tar.bz2');
-            const extractPath = path.join(tempDir, 'extracted-tarbz2');
-
-            // Create TAR.BZ2 archive
-            await tarModule.create(
-                {
-                    bzip2: true,
-                    file: archivePath,
-                    cwd: testDataDir,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any,
-                ['root']
-            );
-
-            // Create asset and extract
-            const localAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(localAsset);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'root', 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'root', 'file2.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'root', 'subdir', 'file3.txt'))).toBe(true);
-
-            const content2 = await fs.readFile(path.join(extractPath, 'root', 'file2.txt'), 'utf-8');
-            expect(content2).toBe('Content of file 2');
-
-            await archiveAsset.dispose();
-        });
-
-        it('should extract .tar.bz2 archive with strip option', async () => {
-            const archivePath = path.join(tempDir, 'test-strip.tar.bz2');
-            const extractPath = path.join(tempDir, 'extracted-tarbz2-strip');
-
-            // Create TAR.BZ2 archive
-            await tarModule.create(
-                {
-                    j: true,
-                    file: archivePath,
-                    cwd: testDataDir,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any,
-                ['root']
-            );
-
-            // Create asset and extract with strip=1
-            const localAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(localAsset, 1);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction with stripped directory
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'subdir', 'file3.txt'))).toBe(true);
-
-            await archiveAsset.dispose();
-        });
-    });
-
-    describe('TAR.XZ format', () => {
-        it('should extract .tar.xz archive correctly', async () => {
-            const archivePath = path.join(tempDir, 'test.tar.xz');
-            const extractPath = path.join(tempDir, 'extracted-tarxz');
-
-            // Create TAR.XZ archive
-            await tarModule.create(
-                {
-                    xz: true,
-                    file: archivePath,
-                    cwd: testDataDir,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any,
-                ['root']
-            );
-
-            // Create asset and extract
-            const localAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(localAsset);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'root', 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'root', 'file2.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'root', 'subdir', 'file3.txt'))).toBe(true);
-
-            const content3 = await fs.readFile(path.join(extractPath, 'root', 'subdir', 'file3.txt'), 'utf-8');
-            expect(content3).toBe('Content of file 3');
-
-            await archiveAsset.dispose();
-        });
-
-        it('should extract .tar.xz archive with strip option', async () => {
-            const archivePath = path.join(tempDir, 'test-strip.tar.xz');
-            const extractPath = path.join(tempDir, 'extracted-tarxz-strip');
-
-            // Create TAR.XZ archive
-            await tarModule.create(
-                {
-                    J: true,
-                    file: archivePath,
-                    cwd: testDataDir,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any,
-                ['root']
-            );
-
-            // Create asset and extract with strip=1
-            const localAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(localAsset, 1);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction with stripped directory
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'file2.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'subdir', 'file3.txt'))).toBe(true);
-
-            await archiveAsset.dispose();
-        });
-    });
-
-    describe('Plain TAR format', () => {
-        it('should extract .tar archive correctly', async () => {
-            const archivePath = path.join(tempDir, 'test.tar');
-            const extractPath = path.join(tempDir, 'extracted-tar');
-
-            // Create plain TAR archive (no compression)
-            await tarModule.create(
-                {
-                    file: archivePath,
-                    cwd: testDataDir,
-                },
-                ['root']
-            );
-
-            // Create asset and extract
-            const localAsset = new ArchiveTestAsset(archivePath);
-            const archiveAsset = new ArchiveFileAsset(localAsset);
-
-            const result = await archiveAsset.copyTo(extractPath);
-
-            // Verify extraction
-            expect(result).toBe(extractPath);
-            expect(existsSync(path.join(extractPath, 'root', 'file1.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'root', 'file2.txt'))).toBe(true);
-            expect(existsSync(path.join(extractPath, 'root', 'subdir', 'file3.txt'))).toBe(true);
-
-            await archiveAsset.dispose();
         });
     });
 
