@@ -10,18 +10,14 @@ permissions:
   packages: write
   
 jobs:
-  build:
-    name: Bump and publish
-    runs-on: [ubuntu-latest]
+  publish:
+    name: Publish to GitHub NPM Registry
+    runs-on: ubuntu-latest
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
         with:
           egress-policy: audit
-
-      - run: |
-            git config --global user.email "${{ github.actor }}@users.noreply.github.com"
-            git config --global user.name "${{ github.actor }}"
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -32,23 +28,21 @@ jobs:
         with:
           node-version-file: package.json
           registry-url: https://npm.pkg.github.com
-          always-auth: true
-          cache: 'npm'
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Update version
+      - name: Check package.json version matches release tag
         run: |
-            git tag -d ${{github.event.release.tag_name}} || true
-            npm version ${{github.event.release.tag_name}}
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Version in package.json ($PKG_VERSION) does not match release tag ($TAG_VERSION)."
+            exit 1
+          fi
 
-      - name: Push changes
-        run: |
-            git push --force-with-lease origin HEAD:main 
-            git push --tags --force
-
-      - name: Run publish
+      - name: Publish package
         env:
           NODE_AUTH_TOKEN: ${{github.token}}
         run: npm publish
