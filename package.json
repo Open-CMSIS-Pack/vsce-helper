@@ -46,7 +46,7 @@
     "@eslint/js": "^9.39.2",
     "@faker-js/faker": "^10.1.0",
     "@types/archiver": "^7.0.0",
-    "@types/node": "^20.19.0",
+    "@types/node": "^20.19.30",
     "@types/yargs": "^17.0.33",
     "@vitest/coverage-v8": "^4.0.16",
     "@vitest/ui": "^4.0.16",
@@ -59,7 +59,7 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.50.0",
+    "typescript-eslint": "^8.53.1",
     "vitest": "^4.0.16"
   },
   "dependencies": {
