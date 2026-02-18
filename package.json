@@ -54,7 +54,7 @@
     "eslint": "^9.39.2",
     "eslint-plugin-security": "^3.0.1",
     "globals": "^17.2.0",
-    "memfs": "^4.51.1",
+    "memfs": "^4.56.10",
     "nock": "^14.0.6",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
