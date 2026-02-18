@@ -38,7 +38,7 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run archive-formats.integration.test.ts",
-    "lint": "eslint src",
+    "lint": "eslint src --ignore-pattern src/__mocks__/** --ignore-pattern coverage/**",
     "lint:fix": "eslint src --fix",
     "types:check": "tsc --noEmit"
   },
