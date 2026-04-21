@@ -1,5 +1,5 @@
 /**
- * Copyright 2025 Arm Limited
+ * Copyright 2025-2026 Arm Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -179,6 +179,17 @@ type GitHubRepoAssetOptions = GitHubAssetOptions & {
     path?: string | string[];
 };
 
+/**
+ * Options for downloading a GitHub workflow artifact.
+ */
+type GitHubWorkflowAssetOptions = GitHubAssetOptions & {
+    /**
+     * When true, select the latest successful run created today (UTC).
+     * When false or omitted, select the latest successful run regardless of date.
+     */
+    latestToday?: boolean;
+};
+
 export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
     protected readonly ref: string;
 
@@ -236,7 +247,7 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
 /**
  * Represents a GitHub workflow artifact.
  */
-export class GitHubWorkflowAsset extends GitHubAsset {
+export class GitHubWorkflowAsset extends GitHubAsset<GitHubWorkflowAssetOptions> {
     private lastWorkflowRunPromise: Promise<RestEndpointMethodTypes['actions']['listWorkflowRuns']['response']['data']['workflow_runs'][number]> | undefined;
 
     /**
@@ -256,7 +267,7 @@ export class GitHubWorkflowAsset extends GitHubAsset {
         repo: string,
         protected readonly workflow: string,
         protected readonly artifactName: string | RegExp,
-        options?: GitHubAssetOptions,
+        options?: GitHubWorkflowAssetOptions,
     ) {
         super(owner, repo, options);
     }
@@ -267,13 +278,32 @@ export class GitHubWorkflowAsset extends GitHubAsset {
                 owner: this.owner,
                 repo: this.repo,
                 workflow_id: this.workflow,
-                per_page: 1,
+                page: 1,
                 status: 'success'
             };
 
-            this.lastWorkflowRunPromise = this.getOctokit()
-                .then(octokit => octokit.rest.actions.listWorkflowRuns(params))
-                .then(response => response.data.workflow_runs[0]);
+            this.lastWorkflowRunPromise = this.getOctokit().then(async octokit => {
+                if (this.options?.latestToday === true) {
+                    const todayUtc = new Date().toISOString().slice(0, 10);
+
+                    for (let page = 1; page <= 10; page++) {
+                        const response = await octokit.rest.actions.listWorkflowRuns({ ...params, per_page: 100, page });
+                        const run = response.data.workflow_runs.find(workflowRun => workflowRun.created_at.startsWith(todayUtc));
+                        if (run) {
+                            return run;
+                        }
+                        if (response.data.workflow_runs.length < 100) {
+                            break;
+                        }
+                    }
+
+                    const todayUtcFormatted = todayUtc.split('-').reverse().join('.');
+                    throw new Error(`No successful '${this.workflow}' workflow run found for ${this.owner}/${this.repo} on ${todayUtcFormatted}`);
+                }
+
+                const response = await octokit.rest.actions.listWorkflowRuns({ ...params, per_page: 1 });
+                return response.data.workflow_runs[0];
+            });
         }
         return this.lastWorkflowRunPromise;
     }
