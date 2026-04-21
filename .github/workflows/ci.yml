@@ -69,7 +69,7 @@ jobs:
 
       - name: Publish coverage report to QLTY
         if: github.repository_owner == 'Open-CMSIS-Pack'
-        uses: qltysh/qlty-action/coverage@0814173ae3b13074fc896ca0e8e6d631c8352509 # v1
+        uses: qltysh/qlty-action/coverage@a19242102d17e497f437d7466aa01b528537e899 # v2.2.0
         with:
           oidc: true
           files: src/coverage/lcov.info
