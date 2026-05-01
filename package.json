@@ -48,7 +48,7 @@
     "@types/archiver": "^7.0.0",
     "@types/node": "^22.19.15",
     "@types/yargs": "^17.0.33",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.5",
     "@vitest/ui": "^4.0.16",
     "archiver": "^7.0.1",
     "eslint": "^10.0.3",
