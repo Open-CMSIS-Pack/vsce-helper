@@ -20,6 +20,7 @@ import { MockedObjectDeep } from '@vitest/spy';
 import { GitHubAsset, GitHubReleaseAsset, GitHubRepoAsset, GitHubWorkflowAsset } from './github-assets.ts';
 import { downloadFile } from './file-download.ts';
 import { faker } from '@faker-js/faker';
+import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
 import { Octokit } from 'octokit';
 import path from 'path';
 import { fs, vol } from 'memfs';
@@ -433,6 +434,77 @@ describe('GitHubWorkflowAsset', () => {
     });
 
     describe('copyTo', async () => {
+
+        it('uses global latest successful run by default', async () => {
+            const owner = faker.lorem.word();
+            const repo = faker.lorem.word();
+            const workflow = faker.system.commonFileName('.yml');
+            const artifactName = faker.system.commonFileName('');
+            const runId = faker.number.int();
+            const asset = new GitHubWorkflowAssetTest(owner, repo, workflow, artifactName);
+            type ListWorkflowRunsResponse = RestEndpointMethodTypes['actions']['listWorkflowRuns']['response'];
+            type WorkflowRun = ListWorkflowRunsResponse['data']['workflow_runs'][number];
+
+            const octokitMock = await asset.getOctokit();
+            octokitMock.rest.actions.listWorkflowRuns.mockResolvedValue({
+                headers: {},
+                status: 200,
+                url: '',
+                data: {
+                    workflow_runs: [{ id: runId } as unknown as WorkflowRun],
+                    total_count: 1,
+                },
+            } as unknown as ListWorkflowRunsResponse);
+
+            await expect(asset.version).resolves.toBe(`${workflow}@${runId}`);
+            expect(octokitMock.rest.actions.listWorkflowRuns).toHaveBeenCalledWith(expect.objectContaining({
+                owner,
+                repo,
+                workflow_id: workflow,
+                per_page: 1,
+                status: 'success',
+            }));
+        });
+
+        it('uses today filter when latestToday is enabled', async () => {
+            const owner = faker.lorem.word();
+            const repo = faker.lorem.word();
+            const workflow = faker.system.commonFileName('.yml');
+            const artifactName = faker.system.commonFileName('');
+            const todayRunId = faker.number.int();
+            const asset = new GitHubWorkflowAssetTest(owner, repo, workflow, artifactName, { latestToday: true });
+            type ListWorkflowRunsResponse = RestEndpointMethodTypes['actions']['listWorkflowRuns']['response'];
+            type WorkflowRun = ListWorkflowRunsResponse['data']['workflow_runs'][number];
+
+            vitest.useFakeTimers();
+            vitest.setSystemTime(new Date('2026-04-21T12:00:00.000Z'));
+
+            const octokitMock = await asset.getOctokit();
+            octokitMock.rest.actions.listWorkflowRuns.mockResolvedValue({
+                headers: {},
+                status: 200,
+                url: '',
+                data: {
+                    workflow_runs: [
+                        { id: 1, created_at: '2026-04-20T23:59:59.000Z' } as unknown as WorkflowRun,
+                        { id: todayRunId, created_at: '2026-04-21T00:00:01.000Z' } as unknown as WorkflowRun,
+                    ],
+                    total_count: 2,
+                },
+            } as unknown as ListWorkflowRunsResponse);
+
+            await expect(asset.version).resolves.toBe(`${workflow}@${todayRunId}`);
+            expect(octokitMock.rest.actions.listWorkflowRuns).toHaveBeenCalledWith(expect.objectContaining({
+                owner,
+                repo,
+                workflow_id: workflow,
+                per_page: 100,
+                page: 1,
+                status: 'success',
+            }));
+
+            vitest.useRealTimers();
+        });
 
         it('issues download of workflow asset', async () => {
             const targetDir = faker.system.directoryPath();
