@@ -21,7 +21,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
 import { existsSync } from 'fs';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import * as tarModule from 'tar';
 import { createWriteStream } from 'fs';
 
@@ -90,7 +90,7 @@ describe('Archive Format Integration Tests', () => {
             create: async (archivePath: string, _strip: number) => {
                 return new Promise<void>((resolve, reject) => {
                     const output = createWriteStream(archivePath);
-                    const archive = archiver('zip', { zlib: { level: 9 } });
+                    const archive = new ZipArchive({ zlib: { level: 9 } });
                     output.on('close', () => resolve());
                     archive.on('error', reject);
                     archive.pipe(output);
