@@ -656,6 +656,41 @@ describe('GitHubWorkflowAsset', () => {
             expect(asset.extractArchive).toHaveBeenCalledWith(asset.downloadArtifact.mock.calls[0][1], targetDir);
         });
 
+        it('reports repo and workflow when no matching non-expired artifact exists', async () => {
+            const targetDir = faker.system.directoryPath();
+            const owner = faker.lorem.word();
+            const repo = faker.lorem.word();
+            const workflow = faker.system.commonFileName('.yml');
+            const artifactName = faker.system.commonFileName('');
+            const runId = faker.number.int();
+            const asset = new GitHubWorkflowAssetTest(owner, repo, workflow, artifactName);
+
+            const octokitMock = await asset.getOctokit();
+            octokitMock.rest.actions.listWorkflowRuns.mockResolvedValue({
+                headers: {},
+                status: 200,
+                url: '',
+                data: {
+                    workflow_runs: [createWorkflowRun({ id: runId })],
+                    total_count: 1
+                },
+            });
+            octokitMock.rest.actions.listWorkflowRunArtifacts.mockResolvedValue({
+                headers: {},
+                status: 200,
+                url: '',
+                data: {
+                    artifacts: [],
+                    total_count: 0
+                },
+            });
+
+            await expect(asset.copyTo(targetDir)).rejects.toThrow(
+                `No non-expired artifact found matching ${artifactName} in ${owner}/${repo} workflow ${workflow} (checked latest successful runs)`
+            );
+            expect(octokitMock.rest.actions.listWorkflowRunArtifacts).toHaveBeenCalledWith({ owner, repo, run_id: runId, per_page: 100 });
+        });
+
         it('skips expired artifacts in newer successful workflow runs', async () => {
             const targetDir = faker.system.directoryPath();
             const owner = faker.lorem.word();
@@ -707,8 +742,8 @@ describe('GitHubWorkflowAsset', () => {
             const result = await asset.copyTo(targetDir);
 
             expect(result).toBe(targetDir);
-            expect(octokitMock.rest.actions.listWorkflowRunArtifacts).toHaveBeenCalledWith({ owner, repo, run_id: expiredRunId });
-            expect(octokitMock.rest.actions.listWorkflowRunArtifacts).toHaveBeenCalledWith({ owner, repo, run_id: validRunId });
+            expect(octokitMock.rest.actions.listWorkflowRunArtifacts).toHaveBeenCalledWith({ owner, repo, run_id: expiredRunId, per_page: 100 });
+            expect(octokitMock.rest.actions.listWorkflowRunArtifacts).toHaveBeenCalledWith({ owner, repo, run_id: validRunId, per_page: 100 });
             expect(asset.downloadArtifact).toHaveBeenCalledWith(validArtifactId, expect.any(String));
             expect(asset.downloadArtifact).not.toHaveBeenCalledWith(expiredArtifactId, expect.any(String));
         });
