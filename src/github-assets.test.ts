@@ -24,8 +24,11 @@ import { Octokit } from 'octokit';
 import path from 'path';
 import { fs, vol } from 'memfs';
 import { toPosix } from './test-utils.ts';
+import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
 
 type ExtractOptions = { strip?: number; force?: boolean };
+type GitHubWorkflowRun = RestEndpointMethodTypes['actions']['listWorkflowRuns']['response']['data']['workflow_runs'][number];
+type GitHubArtifact = RestEndpointMethodTypes['actions']['listWorkflowRunArtifacts']['response']['data']['artifacts'][number];
 
 vitest.mock('node:fs/promises');
 vitest.mock('./file-download.ts', () => ({
@@ -357,6 +360,186 @@ describe('GitHubRepoAsset', () => {
 
 describe('GitHubWorkflowAsset', () => {
 
+    const createWorkflowRun = (overrides: Partial<GitHubWorkflowRun> = {}): GitHubWorkflowRun => ({
+        id: 0,
+        node_id: '',
+        head_branch: null,
+        head_sha: '',
+        path: '',
+        run_number: 0,
+        event: '',
+        status: null,
+        conclusion: null,
+        workflow_id: 0,
+        url: '',
+        html_url: '',
+        pull_requests: null,
+        created_at: '',
+        updated_at: '',
+        jobs_url: '',
+        logs_url: '',
+        check_suite_url: '',
+        artifacts_url: '',
+        cancel_url: '',
+        rerun_url: '',
+        workflow_url: '',
+        head_commit: null,
+        repository: {
+            id: 0,
+            node_id: '',
+            name: '',
+            full_name: '',
+            owner: {
+                name: null,
+                email: null,
+                login: '',
+                id: 0,
+                node_id: '',
+                avatar_url: '',
+                gravatar_id: null,
+                url: '',
+                html_url: '',
+                followers_url: '',
+                following_url: '',
+                gists_url: '',
+                starred_url: '',
+                subscriptions_url: '',
+                organizations_url: '',
+                repos_url: '',
+                events_url: '',
+                received_events_url: '',
+                type: '',
+                site_admin: false,
+            },
+            private: false,
+            html_url: '',
+            description: null,
+            fork: false,
+            url: '',
+            archive_url: '',
+            assignees_url: '',
+            blobs_url: '',
+            branches_url: '',
+            collaborators_url: '',
+            comments_url: '',
+            commits_url: '',
+            compare_url: '',
+            contents_url: '',
+            contributors_url: '',
+            deployments_url: '',
+            downloads_url: '',
+            events_url: '',
+            forks_url: '',
+            git_commits_url: '',
+            git_refs_url: '',
+            git_tags_url: '',
+            issue_comment_url: '',
+            issue_events_url: '',
+            issues_url: '',
+            keys_url: '',
+            labels_url: '',
+            languages_url: '',
+            merges_url: '',
+            milestones_url: '',
+            notifications_url: '',
+            pulls_url: '',
+            releases_url: '',
+            stargazers_url: '',
+            statuses_url: '',
+            subscribers_url: '',
+            subscription_url: '',
+            tags_url: '',
+            teams_url: '',
+            trees_url: '',
+            hooks_url: ''
+        },
+        head_repository: {
+            id: 0,
+            node_id: '',
+            name: '',
+            full_name: '',
+            owner: {
+                name: null,
+                email: null,
+                login: '',
+                id: 0,
+                node_id: '',
+                avatar_url: '',
+                gravatar_id: null,
+                url: '',
+                html_url: '',
+                followers_url: '',
+                following_url: '',
+                gists_url: '',
+                starred_url: '',
+                subscriptions_url: '',
+                organizations_url: '',
+                repos_url: '',
+                events_url: '',
+                received_events_url: '',
+                type: '',
+                site_admin: false,
+            },
+            private: false,
+            html_url: '',
+            description: null,
+            fork: false,
+            url: '',
+            archive_url: '',
+            assignees_url: '',
+            blobs_url: '',
+            branches_url: '',
+            collaborators_url: '',
+            comments_url: '',
+            commits_url: '',
+            compare_url: '',
+            contents_url: '',
+            contributors_url: '',
+            deployments_url: '',
+            downloads_url: '',
+            events_url: '',
+            forks_url: '',
+            git_commits_url: '',
+            git_refs_url: '',
+            git_tags_url: '',
+            issue_comment_url: '',
+            issue_events_url: '',
+            issues_url: '',
+            keys_url: '',
+            labels_url: '',
+            languages_url: '',
+            merges_url: '',
+            milestones_url: '',
+            notifications_url: '',
+            pulls_url: '',
+            releases_url: '',
+            stargazers_url: '',
+            statuses_url: '',
+            subscribers_url: '',
+            subscription_url: '',
+            tags_url: '',
+            teams_url: '',
+            trees_url: '',
+            hooks_url: ''
+        },
+        display_title: '',
+        ...overrides,
+    });
+
+    const createArtifact = (overrides: Partial<GitHubArtifact> = {}): GitHubArtifact => ({
+        id: 0,
+        name: '',
+        archive_download_url: '',
+        node_id: '',
+        size_in_bytes: 0,
+        url: '',
+        expired: false,
+        created_at: null,
+        expires_at: null,
+        updated_at: null,
+        ...overrides,
+    });
+
     class GitHubWorkflowAssetTest extends GitHubWorkflowAsset {
         public octokitMock: MockedObjectDeep<Octokit> | undefined = undefined;
 
@@ -452,170 +635,7 @@ describe('GitHubWorkflowAsset', () => {
                 status: 200,
                 url: '',
                 data: {
-                    workflow_runs: [{
-                        id: 0,
-                        node_id: '',
-                        head_branch: null,
-                        head_sha: '',
-                        path: '',
-                        run_number: 0,
-                        event: '',
-                        status: null,
-                        conclusion: null,
-                        workflow_id: 0,
-                        url: '',
-                        html_url: '',
-                        pull_requests: null,
-                        created_at: '',
-                        updated_at: '',
-                        jobs_url: '',
-                        logs_url: '',
-                        check_suite_url: '',
-                        artifacts_url: '',
-                        cancel_url: '',
-                        rerun_url: '',
-                        workflow_url: '',
-                        head_commit: null,
-                        repository: {
-                            id: 0,
-                            node_id: '',
-                            name: '',
-                            full_name: '',
-                            owner: {
-                                name: null,
-                                email: null,
-                                login: '',
-                                id: 0,
-                                node_id: '',
-                                avatar_url: '',
-                                gravatar_id: null,
-                                url: '',
-                                html_url: '',
-                                followers_url: '',
-                                following_url: '',
-                                gists_url: '',
-                                starred_url: '',
-                                subscriptions_url: '',
-                                organizations_url: '',
-                                repos_url: '',
-                                events_url: '',
-                                received_events_url: '',
-                                type: '',
-                                site_admin: false,
-                            },
-                            private: false,
-                            html_url: '',
-                            description: null,
-                            fork: false,
-                            url: '',
-                            archive_url: '',
-                            assignees_url: '',
-                            blobs_url: '',
-                            branches_url: '',
-                            collaborators_url: '',
-                            comments_url: '',
-                            commits_url: '',
-                            compare_url: '',
-                            contents_url: '',
-                            contributors_url: '',
-                            deployments_url: '',
-                            downloads_url: '',
-                            events_url: '',
-                            forks_url: '',
-                            git_commits_url: '',
-                            git_refs_url: '',
-                            git_tags_url: '',
-                            issue_comment_url: '',
-                            issue_events_url: '',
-                            issues_url: '',
-                            keys_url: '',
-                            labels_url: '',
-                            languages_url: '',
-                            merges_url: '',
-                            milestones_url: '',
-                            notifications_url: '',
-                            pulls_url: '',
-                            releases_url: '',
-                            stargazers_url: '',
-                            statuses_url: '',
-                            subscribers_url: '',
-                            subscription_url: '',
-                            tags_url: '',
-                            teams_url: '',
-                            trees_url: '',
-                            hooks_url: ''
-                        },
-                        head_repository: {
-                            id: 0,
-                            node_id: '',
-                            name: '',
-                            full_name: '',
-                            owner: {
-                                name: null,
-                                email: null,
-                                login: '',
-                                id: 0,
-                                node_id: '',
-                                avatar_url: '',
-                                gravatar_id: null,
-                                url: '',
-                                html_url: '',
-                                followers_url: '',
-                                following_url: '',
-                                gists_url: '',
-                                starred_url: '',
-                                subscriptions_url: '',
-                                organizations_url: '',
-                                repos_url: '',
-                                events_url: '',
-                                received_events_url: '',
-                                type: '',
-                                site_admin: false,
-                            },
-                            private: false,
-                            html_url: '',
-                            description: null,
-                            fork: false,
-                            url: '',
-                            archive_url: '',
-                            assignees_url: '',
-                            blobs_url: '',
-                            branches_url: '',
-                            collaborators_url: '',
-                            comments_url: '',
-                            commits_url: '',
-                            compare_url: '',
-                            contents_url: '',
-                            contributors_url: '',
-                            deployments_url: '',
-                            downloads_url: '',
-                            events_url: '',
-                            forks_url: '',
-                            git_commits_url: '',
-                            git_refs_url: '',
-                            git_tags_url: '',
-                            issue_comment_url: '',
-                            issue_events_url: '',
-                            issues_url: '',
-                            keys_url: '',
-                            labels_url: '',
-                            languages_url: '',
-                            merges_url: '',
-                            milestones_url: '',
-                            notifications_url: '',
-                            pulls_url: '',
-                            releases_url: '',
-                            stargazers_url: '',
-                            statuses_url: '',
-                            subscribers_url: '',
-                            subscription_url: '',
-                            tags_url: '',
-                            teams_url: '',
-                            trees_url: '',
-                            hooks_url: ''
-                        },
-                        display_title: ''
-                    }],
+                    workflow_runs: [createWorkflowRun()],
                     total_count: 1
                 },
             });
@@ -624,18 +644,7 @@ describe('GitHubWorkflowAsset', () => {
                 status: 200,
                 url: '',
                 data: {
-                    artifacts: [{
-                        id: artifactId,
-                        name: artifactName,
-                        archive_download_url: '',
-                        node_id: '',
-                        size_in_bytes: 0,
-                        url: '',
-                        expired: false,
-                        created_at: null,
-                        expires_at: null,
-                        updated_at: null
-                    }],
+                    artifacts: [createArtifact({ id: artifactId, name: artifactName })],
                     total_count: 1
                 },
             });
@@ -645,6 +654,63 @@ describe('GitHubWorkflowAsset', () => {
             expect(result).toBe(targetDir);
             expect(asset.downloadArtifact).toHaveBeenCalledWith(artifactId, expect.any(String));
             expect(asset.extractArchive).toHaveBeenCalledWith(asset.downloadArtifact.mock.calls[0][1], targetDir);
+        });
+
+        it('skips expired artifacts in newer successful workflow runs', async () => {
+            const targetDir = faker.system.directoryPath();
+            const owner = faker.lorem.word();
+            const repo = faker.lorem.word();
+            const workflow = faker.system.commonFileName('.yml');
+            const artifactName = faker.system.commonFileName('');
+            const expiredRunId = faker.number.int();
+            const validRunId = faker.number.int();
+            const expiredArtifactId = faker.number.int();
+            const validArtifactId = faker.number.int();
+            const asset = new GitHubWorkflowAssetTest(owner, repo, workflow, artifactName);
+
+            asset.downloadArtifact.mockImplementation(async (_, downloadFilePath) => downloadFilePath);
+            asset.extractArchive.mockImplementation(async (_, dest) => dest ?? faker.system.directoryPath());
+
+            const octokitMock = await asset.getOctokit();
+            octokitMock.rest.actions.listWorkflowRuns.mockResolvedValue({
+                headers: {},
+                status: 200,
+                url: '',
+                data: {
+                    workflow_runs: [
+                        createWorkflowRun({ id: expiredRunId, run_number: 1286, created_at: '2026-08-04T00:00:00Z' }),
+                        createWorkflowRun({ id: validRunId, run_number: 1285, created_at: '2026-08-03T00:00:00Z' }),
+                    ],
+                    total_count: 2
+                },
+            });
+            octokitMock.rest.actions.listWorkflowRunArtifacts
+                .mockResolvedValueOnce({
+                    headers: {},
+                    status: 200,
+                    url: '',
+                    data: {
+                        artifacts: [createArtifact({ id: expiredArtifactId, name: artifactName, expired: true })],
+                        total_count: 1
+                    },
+                })
+                .mockResolvedValueOnce({
+                    headers: {},
+                    status: 200,
+                    url: '',
+                    data: {
+                        artifacts: [createArtifact({ id: validArtifactId, name: artifactName })],
+                        total_count: 1
+                    },
+                });
+
+            const result = await asset.copyTo(targetDir);
+
+            expect(result).toBe(targetDir);
+            expect(octokitMock.rest.actions.listWorkflowRunArtifacts).toHaveBeenCalledWith({ owner, repo, run_id: expiredRunId });
+            expect(octokitMock.rest.actions.listWorkflowRunArtifacts).toHaveBeenCalledWith({ owner, repo, run_id: validRunId });
+            expect(asset.downloadArtifact).toHaveBeenCalledWith(validArtifactId, expect.any(String));
+            expect(asset.downloadArtifact).not.toHaveBeenCalledWith(expiredArtifactId, expect.any(String));
         });
 
     });
