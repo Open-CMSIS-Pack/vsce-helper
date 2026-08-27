@@ -95,6 +95,8 @@ export abstract class GitHubAsset<T extends GitHubAssetOptions = GitHubAssetOpti
 }
 
 type GitHubRelease = RestEndpointMethodTypes['repos']['getReleaseByTag']['response']['data'];
+type GitHubWorkflowRun = RestEndpointMethodTypes['actions']['listWorkflowRuns']['response']['data']['workflow_runs'][number];
+type GitHubArtifact = RestEndpointMethodTypes['actions']['listWorkflowRunArtifacts']['response']['data']['artifacts'][number];
 
 /**
  * Represents a GitHub release asset.
@@ -237,7 +239,7 @@ export class GitHubRepoAsset extends GitHubAsset<GitHubRepoAssetOptions> {
  * Represents a GitHub workflow artifact.
  */
 export class GitHubWorkflowAsset extends GitHubAsset {
-    private lastWorkflowRunPromise: Promise<RestEndpointMethodTypes['actions']['listWorkflowRuns']['response']['data']['workflow_runs'][number]> | undefined;
+    private lastWorkflowRunArtifactPromise: Promise<{ run: GitHubWorkflowRun; artifact: GitHubArtifact }> | undefined;
 
     /**
      * Creates an instance of GitHubWorkflowAsset.
@@ -261,21 +263,36 @@ export class GitHubWorkflowAsset extends GitHubAsset {
         super(owner, repo, options);
     }
 
-    protected get lastWorkflowRun() {
-        if (!this.lastWorkflowRunPromise) {
-            const params: RestEndpointMethodTypes['actions']['listWorkflowRuns']['parameters'] = {
-                owner: this.owner,
-                repo: this.repo,
-                workflow_id: this.workflow,
-                per_page: 1,
-                status: 'success'
-            };
-
-            this.lastWorkflowRunPromise = this.getOctokit()
-                .then(octokit => octokit.rest.actions.listWorkflowRuns(params))
-                .then(response => response.data.workflow_runs[0]);
+    protected get lastWorkflowRunArtifact() {
+        if (!this.lastWorkflowRunArtifactPromise) {
+            this.lastWorkflowRunArtifactPromise = this.findLastWorkflowRunArtifact();
         }
-        return this.lastWorkflowRunPromise;
+        return this.lastWorkflowRunArtifactPromise;
+    }
+
+    protected async findLastWorkflowRunArtifact() {
+        const octokit = await this.getOctokit();
+
+        const params: RestEndpointMethodTypes['actions']['listWorkflowRuns']['parameters'] = {
+            owner: this.owner,
+            repo: this.repo,
+            workflow_id: this.workflow,
+            per_page: 20,
+            status: 'success'
+        };
+
+        const runs = (await octokit.rest.actions.listWorkflowRuns(params)).data.workflow_runs;
+
+        for (const run of runs) {
+            const artifacts = await octokit.rest.actions.listWorkflowRunArtifacts({ ...this.repoAndOwner, run_id: run.id, per_page: 100 });
+            const artifact = artifacts.data.artifacts.find(artifact => artifact.name.match(this.artifactName) && !artifact.expired);
+
+            if (artifact) {
+                return { run, artifact };
+            }
+        }
+
+        throw new Error(`No non-expired artifact found matching ${String(this.artifactName)} in ${this.owner}/${this.repo} workflow ${this.workflow} (checked latest successful runs)`);
     }
 
     protected async downloadArtifact(id: number, downloadFilePath: string) {
@@ -289,26 +306,19 @@ export class GitHubWorkflowAsset extends GitHubAsset {
     }
 
     public get version() {
-        return this.lastWorkflowRun
-            .then(run => `${this.workflow}@${run.id}`);
+        return this.lastWorkflowRunArtifact
+            .then(({ run }) => `${this.workflow}@${run.id}`);
     }
 
     public get cacheId() {
-        return this.lastWorkflowRun
-            .then(run => `${this.owner}/${this.repo}/${this.workflow}/${run.id}`);
+        return this.lastWorkflowRunArtifact
+            .then(({ run }) => `${this.owner}/${this.repo}/${this.workflow}/${run.id}`);
     }
 
     public async copyTo(dest?: string) {
-        const octokit = await this.getOctokit();
-
         const temp = await this.mkTempDir();
 
-        const run = await this.lastWorkflowRun;
-        const artifacts = await octokit.rest.actions.listWorkflowRunArtifacts({ ...this.repoAndOwner, run_id: run.id });
-        const artifact = artifacts.data.artifacts.find(artifact => artifact.name.match(this.artifactName));
-        if (!artifact) {
-            throw new Error(`No artifact found matching ${this.artifactName} in workflow run ${run.id}`);
-        }
+        const { run, artifact } = await this.lastWorkflowRunArtifact;
 
         const artifactDownloadPath = path.join(temp, `${artifact.name}.zip`);
         console.debug(`Downloading artifact ${artifact.name} from ${this.workflow}@${run.run_number} ...`);
