@@ -284,7 +284,7 @@ export class GitHubWorkflowAsset extends GitHubAsset {
         const runs = (await octokit.rest.actions.listWorkflowRuns(params)).data.workflow_runs;
 
         for (const run of runs) {
-            const artifacts = await octokit.rest.actions.listWorkflowRunArtifacts({ ...this.repoAndOwner, run_id: run.id });
+            const artifacts = await octokit.rest.actions.listWorkflowRunArtifacts({ ...this.repoAndOwner, run_id: run.id, per_page: 100 });
             const artifact = artifacts.data.artifacts.find(artifact => artifact.name.match(this.artifactName) && !artifact.expired);
 
             if (artifact) {
@@ -292,7 +292,7 @@ export class GitHubWorkflowAsset extends GitHubAsset {
             }
         }
 
-        throw new Error(`No non-expired artifact found matching ${this.artifactName} in the latest successful workflow runs`);
+        throw new Error(`No non-expired artifact found matching ${String(this.artifactName)} in ${this.owner}/${this.repo} workflow ${this.workflow} (checked latest successful runs)`);
     }
 
     protected async downloadArtifact(id: number, downloadFilePath: string) {
