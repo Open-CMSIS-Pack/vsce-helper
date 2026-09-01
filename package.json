@@ -51,7 +51,7 @@
     "@vitest/coverage-v8": "^4.1.5",
     "@vitest/ui": "^4.0.16",
     "archiver": "^8.0.0",
-    "eslint": "^10.2.1",
+    "eslint": "^10.9.1",
     "eslint-plugin-security": "^4.0.1",
     "globals": "^17.7.0",
     "memfs": "^4.57.8",
