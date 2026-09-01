@@ -49,7 +49,7 @@
     "@types/node": "^22.20.0",
     "@types/yargs": "^17.0.33",
     "@vitest/coverage-v8": "^4.1.5",
-    "@vitest/ui": "^4.0.16",
+    "@vitest/ui": "^4.1.11",
     "archiver": "^8.0.0",
     "eslint": "^10.2.1",
     "eslint-plugin-security": "^4.0.1",
