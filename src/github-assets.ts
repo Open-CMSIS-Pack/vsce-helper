@@ -311,7 +311,9 @@ export class GitHubWorkflowAsset extends GitHubAsset {
             }
         }
 
-        const checkedRunNumbers = successfulRuns.map(run => `${run.run_number}`).join('; ');
+        const checkedRunNumbers = successfulRuns.length
+            ? successfulRuns.map(run => `${run.run_number}`).join('; ')
+            : 'none';
         throw new Error(`No non-expired artifact found matching ${String(this.artifactName)} in ${this.owner}/${this.repo} workflow ${this.workflow} (checked latest successful runs: ${checkedRunNumbers})`);
     }
 
