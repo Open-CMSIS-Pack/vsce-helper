@@ -1,5 +1,5 @@
 /**
- * Copyright 2025 Arm Limited
+ * Copyright 2025-2026 Arm Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,6 +97,11 @@ export abstract class GitHubAsset<T extends GitHubAssetOptions = GitHubAssetOpti
 type GitHubRelease = RestEndpointMethodTypes['repos']['getReleaseByTag']['response']['data'];
 type GitHubWorkflowRun = RestEndpointMethodTypes['actions']['listWorkflowRuns']['response']['data']['workflow_runs'][number];
 type GitHubArtifact = RestEndpointMethodTypes['actions']['listWorkflowRunArtifacts']['response']['data']['artifacts'][number];
+
+const timestamp = (value: string | null | undefined): number => {
+    const parsed = value ? Date.parse(value) : Number.NaN;
+    return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+};
 
 /**
  * Represents a GitHub release asset.
@@ -273,26 +278,43 @@ export class GitHubWorkflowAsset extends GitHubAsset {
     protected async findLastWorkflowRunArtifact() {
         const octokit = await this.getOctokit();
 
+        // Avoid GitHub Actions API filters here (e.g. `status: 'success'`).
+        // Filtered workflow-run queries have intermittently returned stale or incomplete
+        // results due to GitHub-side indexing issues, while unfiltered queries remained correct.
+        // See GitHub Community discussions #24626 and #194140.
         const params: RestEndpointMethodTypes['actions']['listWorkflowRuns']['parameters'] = {
             owner: this.owner,
             repo: this.repo,
             workflow_id: this.workflow,
-            per_page: 20,
-            status: 'success'
+            per_page: 50,
         };
 
-        const runs = (await octokit.rest.actions.listWorkflowRuns(params)).data.workflow_runs;
+        // GitHub commonly returns workflow runs newest-first, but the endpoint documentation
+        // does not guarantee ordering, so sort explicitly before selecting a run.
+        const { data } = await octokit.rest.actions.listWorkflowRuns(params);
+        const successfulRuns = data.workflow_runs
+            .filter(run => run.conclusion === 'success')
+            .sort((first, second) =>
+                timestamp(second.created_at) - timestamp(first.created_at) ||
+                second.run_number - first.run_number ||
+                second.id - first.id
+            );
 
-        for (const run of runs) {
+        for (const run of successfulRuns) {
             const artifacts = await octokit.rest.actions.listWorkflowRunArtifacts({ ...this.repoAndOwner, run_id: run.id, per_page: 100 });
-            const artifact = artifacts.data.artifacts.find(artifact => artifact.name.match(this.artifactName) && !artifact.expired);
+            const artifact = artifacts.data.artifacts.find(
+                artifact => artifact.name.match(this.artifactName) && !artifact.expired
+            );
 
             if (artifact) {
                 return { run, artifact };
             }
         }
 
-        throw new Error(`No non-expired artifact found matching ${String(this.artifactName)} in ${this.owner}/${this.repo} workflow ${this.workflow} (checked latest successful runs)`);
+        const checkedRunNumbers = successfulRuns.length
+            ? successfulRuns.map(run => `${run.run_number}`).join('; ')
+            : 'none';
+        throw new Error(`No non-expired artifact found matching ${String(this.artifactName)} in ${this.owner}/${this.repo} workflow ${this.workflow} (checked latest successful runs: ${checkedRunNumbers})`);
     }
 
     protected async downloadArtifact(id: number, downloadFilePath: string) {
