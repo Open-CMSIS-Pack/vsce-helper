@@ -25,7 +25,7 @@ import { PackageJson } from 'type-fest';
 import { promisify } from 'node:util';
 import tempfile from 'tempfile';
 import { OutgoingHttpHeaders } from 'node:http';
-import extractZip from 'extract-zip';
+import { extractZip } from '@open-cmsis-pack/cmsis-common/extract-zip';
 import * as tar from 'tar';
 import process from 'node:process';
 
@@ -186,7 +186,7 @@ export abstract class AbstractAsset implements Asset {
         try {
             // Handle ZIP files
             if (ext === '.zip') {
-                await extractZip(archiveFile, { dir: path.resolve(dest) });
+                await extractZip(archiveFile, path.resolve(dest) );
 
                 // Handle strip option for ZIP files if needed
                 if (options.strip && options.strip > 0) {

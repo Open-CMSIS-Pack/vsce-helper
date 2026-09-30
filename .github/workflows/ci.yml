@@ -50,7 +50,7 @@ jobs:
 
       - name: Install dependencies
         env:
-          GITHUB_TOKEN: ${{github.token}}
+          NODE_AUTH_TOKEN: ${{ github.token }}
         run: npm ci
 
       - name: Run linters
