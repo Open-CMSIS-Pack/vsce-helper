@@ -31,6 +31,8 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
         run: npm ci
 
       - name: Check package.json version matches release tag
