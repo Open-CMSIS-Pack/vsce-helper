@@ -8,8 +8,15 @@ updates:
     time: "02:00"
   cooldown:
     default-days: 3
+  groups:
+    npm:
+      patterns:
+        - "*"
   ignore:
     - dependency-name: "@types/node"
+      update-types:
+        - version-update:semver-major
+    - dependency-name: "typescript"
       update-types:
         - version-update:semver-major
 
@@ -20,3 +27,7 @@ updates:
     time: "02:00"
   cooldown:
     default-days: 3
+  groups:
+    github-actions:
+      patterns:
+        - "*"
