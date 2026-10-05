@@ -8,6 +8,10 @@ updates:
     time: "02:00"
   cooldown:
     default-days: 3
+  groups:
+    npm:
+      patterns:
+        - "*"
   ignore:
     - dependency-name: "@types/node"
       update-types:
@@ -20,3 +24,7 @@ updates:
     time: "02:00"
   cooldown:
     default-days: 3
+  groups:
+    github-actions:
+      patterns:
+        - "*"
