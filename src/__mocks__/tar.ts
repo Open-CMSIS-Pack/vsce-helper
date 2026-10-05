@@ -15,5 +15,8 @@
  */
 
 import { vitest } from 'vitest';
+import type { TarOptionsWithAliases } from 'tar';
 
-export const extract = vitest.fn().mockResolvedValue(undefined);
+export const extract = vitest.fn<(
+    options: TarOptionsWithAliases,
+) => Promise<void>>().mockResolvedValue(undefined);

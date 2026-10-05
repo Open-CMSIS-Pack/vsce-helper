@@ -16,6 +16,9 @@
 
 import { vitest } from 'vitest';
 
-const fastExtract = vitest.fn().mockResolvedValue(undefined);
+const fastExtract = vitest.fn<(
+    archivePath: string,
+    destination: string,
+) => Promise<void>>().mockResolvedValue(undefined);
 
 export default fastExtract;

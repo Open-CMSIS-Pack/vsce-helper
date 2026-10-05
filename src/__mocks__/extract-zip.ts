@@ -15,7 +15,12 @@
  */
 
 import { vitest } from 'vitest';
+import type { ExtractZipLimits } from '@open-cmsis-pack/cmsis-common/extract-zip';
 
-const extractZip = vitest.fn().mockResolvedValue(undefined);
+const extractZip = vitest.fn<(
+    zipPath: string,
+    destination: string,
+    limitOverrides?: Partial<ExtractZipLimits>,
+) => Promise<void>>().mockResolvedValue(undefined);
 
 export default extractZip;
