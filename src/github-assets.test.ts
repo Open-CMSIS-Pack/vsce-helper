@@ -556,7 +556,7 @@ describe('GitHubWorkflowAsset', () => {
 
     describe('downloadArtifact', async () => {
 
-        it('downloads artifact', async () => {
+        it.each(['https://api.github.com', 'https://github.example.com/api/v3'])('downloads artifact and logs its API URL with base URL %s', async baseUrl => {
             const targetDir = faker.system.directoryPath();
             const owner = faker.lorem.word();
             const repo = faker.lorem.word();
@@ -571,19 +571,36 @@ describe('GitHubWorkflowAsset', () => {
             const asset = new GitHubWorkflowAssetTest(owner, repo, workflow, artifactName);
 
             const octokitMock = await asset.getOctokit();
+            octokitMock.rest.actions.downloadArtifact.endpoint.mockImplementation(
+                new Octokit({ baseUrl }).rest.actions.downloadArtifact.endpoint
+            );
             octokitMock.rest.actions.downloadArtifact.mockResolvedValue({
                 headers: {},
                 status: 302,
-                url: faker.internet.url({ appendSlash: true }),
+                url: 'https://storage.example.com/artifact.zip?token=signed-download-token',
                 data: contentBuffer,
             });
 
-            const result = await asset.downloadArtifact(artifactId, downloadFilePath);
+            const downloadLog = vitest.spyOn(console, 'debug').mockImplementation(() => {});
+            try {
+                const result = await asset.downloadArtifact(artifactId, downloadFilePath);
 
-            expect(result).toBe(downloadFilePath);
-            expect(vol.toJSON()).toEqual(expect.objectContaining({
-                [toPosix(downloadFilePath)]: content,
-            }));
+                expect(result).toBe(downloadFilePath);
+                expect(downloadLog).toHaveBeenCalledExactlyOnceWith(
+                    `Downloading ${baseUrl}/repos/${owner}/${repo}/actions/artifacts/${artifactId}/zip ...`
+                );
+                expect(octokitMock.rest.actions.downloadArtifact).toHaveBeenCalledExactlyOnceWith({
+                    owner,
+                    repo,
+                    artifact_id: artifactId,
+                    archive_format: 'zip',
+                });
+                expect(vol.toJSON()).toEqual(expect.objectContaining({
+                    [toPosix(downloadFilePath)]: content,
+                }));
+            } finally {
+                downloadLog.mockRestore();
+            }
         });
 
         it('skips download if file already exists', async () => {
@@ -604,13 +621,19 @@ describe('GitHubWorkflowAsset', () => {
                 [artifactArchive]: content,
             }, targetDir);
 
-            const result = await asset.downloadArtifact(artifactId, downloadFilePath);
+            const downloadLog = vitest.spyOn(console, 'debug').mockImplementation(() => {});
+            try {
+                const result = await asset.downloadArtifact(artifactId, downloadFilePath);
 
-            expect(result).toBe(downloadFilePath);
-            expect(octokitMock.rest.actions.downloadArtifact).not.toHaveBeenCalled();
-            expect(vol.toJSON()).toEqual(expect.objectContaining({
-                [toPosix(downloadFilePath)]: content,
-            }));
+                expect(result).toBe(downloadFilePath);
+                expect(downloadLog).not.toHaveBeenCalledWith(expect.stringMatching(/^Downloading /));
+                expect(octokitMock.rest.actions.downloadArtifact).not.toHaveBeenCalled();
+                expect(vol.toJSON()).toEqual(expect.objectContaining({
+                    [toPosix(downloadFilePath)]: content,
+                }));
+            } finally {
+                downloadLog.mockRestore();
+            }
         });
 
     });

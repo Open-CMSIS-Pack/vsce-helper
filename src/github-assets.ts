@@ -317,10 +317,19 @@ export class GitHubWorkflowAsset extends GitHubAsset {
         throw new Error(`No non-expired artifact found matching ${String(this.artifactName)} in ${this.owner}/${this.repo} workflow ${this.workflow} (checked latest successful runs: ${checkedRunNumbers})`);
     }
 
+    /** Downloads a workflow artifact on a cache miss and logs its stable GitHub API URL. */
     protected async downloadArtifact(id: number, downloadFilePath: string) {
         if (!await this.assureFile(downloadFilePath)) {
             const octokit = await this.getOctokit();
-            const response = await octokit.rest.actions.downloadArtifact({ ...this.repoAndOwner, artifact_id: id, archive_format: 'zip' });
+            const parameters: RestEndpointMethodTypes['actions']['downloadArtifact']['parameters'] = {
+                ...this.repoAndOwner,
+                artifact_id: id,
+                archive_format: 'zip',
+            };
+            const { url } = octokit.rest.actions.downloadArtifact.endpoint(parameters);
+            console.debug(`Downloading ${url} ...`);
+
+            const response = await octokit.rest.actions.downloadArtifact(parameters);
             await fs.mkdir(path.dirname(downloadFilePath), { recursive: true });
             await fs.writeFile(downloadFilePath, Buffer.from(response.data as ArrayBuffer));
         }
