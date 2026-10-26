@@ -540,6 +540,28 @@ describe('GitHubWorkflowAsset', () => {
         ...overrides,
     });
 
+    /** Supplies one successful workflow run and its artifact through the existing GitHub API mocks. */
+    function mockWorkflowArtifact(octokitMock: MockedObjectDeep<Octokit>, run: GitHubWorkflowRun, artifact: GitHubArtifact): void {
+        octokitMock.rest.actions.listWorkflowRuns.mockResolvedValue({
+            headers: {},
+            status: 200,
+            url: '',
+            data: {
+                workflow_runs: [run],
+                total_count: 1,
+            },
+        });
+        octokitMock.rest.actions.listWorkflowRunArtifacts.mockResolvedValue({
+            headers: {},
+            status: 200,
+            url: '',
+            data: {
+                artifacts: [artifact],
+                total_count: 1,
+            },
+        });
+    }
+
     class GitHubWorkflowAssetTest extends GitHubWorkflowAsset {
         public octokitMock: MockedObjectDeep<Octokit> | undefined = undefined;
 
@@ -556,7 +578,7 @@ describe('GitHubWorkflowAsset', () => {
 
     describe('downloadArtifact', async () => {
 
-        it.each(['https://api.github.com', 'https://github.example.com/api/v3'])('downloads artifact and logs its API URL with base URL %s', async baseUrl => {
+        it.each(['https://github.com', 'https://github.example.com'])('downloads artifact and logs its source run on %s', async browserUrl => {
             const targetDir = faker.system.directoryPath();
             const owner = faker.lorem.word();
             const repo = faker.lorem.word();
@@ -567,12 +589,15 @@ describe('GitHubWorkflowAsset', () => {
             const downloadFilePath = path.join(targetDir, artifactArchive);
             const content = faker.lorem.paragraph();
             const contentBuffer = Buffer.from(content, 'utf-8');
+            const runId = faker.number.int();
+            const sourceUrl = `${browserUrl}/${owner}/${repo}/actions/runs/${runId}`;
 
             const asset = new GitHubWorkflowAssetTest(owner, repo, workflow, artifactName);
 
             const octokitMock = await asset.getOctokit();
-            octokitMock.rest.actions.downloadArtifact.endpoint.mockImplementation(
-                new Octokit({ baseUrl }).rest.actions.downloadArtifact.endpoint
+            mockWorkflowArtifact(octokitMock,
+                createWorkflowRun({ id: runId, conclusion: 'success', html_url: sourceUrl }),
+                createArtifact({ id: artifactId, name: artifactName })
             );
             octokitMock.rest.actions.downloadArtifact.mockResolvedValue({
                 headers: {},
@@ -587,7 +612,7 @@ describe('GitHubWorkflowAsset', () => {
 
                 expect(result).toBe(downloadFilePath);
                 expect(downloadLog).toHaveBeenCalledExactlyOnceWith(
-                    `Downloading ${baseUrl}/repos/${owner}/${repo}/actions/artifacts/${artifactId}/zip ...`
+                    `Downloading ${artifactName} from ${sourceUrl}`
                 );
                 expect(octokitMock.rest.actions.downloadArtifact).toHaveBeenCalledExactlyOnceWith({
                     owner,
@@ -628,6 +653,8 @@ describe('GitHubWorkflowAsset', () => {
                 expect(result).toBe(downloadFilePath);
                 expect(downloadLog).not.toHaveBeenCalledWith(expect.stringMatching(/^Downloading /));
                 expect(octokitMock.rest.actions.downloadArtifact).not.toHaveBeenCalled();
+                expect(octokitMock.rest.actions.listWorkflowRuns).not.toHaveBeenCalled();
+                expect(octokitMock.rest.actions.listWorkflowRunArtifacts).not.toHaveBeenCalled();
                 expect(vol.toJSON()).toEqual(expect.objectContaining({
                     [toPosix(downloadFilePath)]: content,
                 }));
@@ -640,43 +667,44 @@ describe('GitHubWorkflowAsset', () => {
 
     describe('copyTo', async () => {
 
-        it('issues download of workflow asset', async () => {
+        it('downloads a workflow asset and logs its source exactly once without resolving the run again', async () => {
             const targetDir = faker.system.directoryPath();
             const owner = faker.lorem.word();
             const repo = faker.lorem.word();
             const workflow = faker.system.commonFileName('.yml');
             const artifactName = faker.system.commonFileName('');
             const artifactId = faker.number.int();
+            const runId = faker.number.int();
+            const sourceUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
             const asset = new GitHubWorkflowAssetTest(owner, repo, workflow, artifactName);
 
-            asset.downloadArtifact.mockImplementation(async (_, downloadFilePath) => downloadFilePath);
             asset.extractArchive.mockImplementation(async (_, dest) => dest ?? faker.system.directoryPath());
 
             const octokitMock = await asset.getOctokit();
-            octokitMock.rest.actions.listWorkflowRuns.mockResolvedValue({
+            mockWorkflowArtifact(octokitMock,
+                createWorkflowRun({ id: runId, conclusion: 'success', html_url: sourceUrl }),
+                createArtifact({ id: artifactId, name: artifactName })
+            );
+            octokitMock.rest.actions.downloadArtifact.mockResolvedValue({
                 headers: {},
-                status: 200,
+                status: 302,
                 url: '',
-                data: {
-                    workflow_runs: [createWorkflowRun({ conclusion: 'success' })],
-                    total_count: 1
-                },
-            });
-            octokitMock.rest.actions.listWorkflowRunArtifacts.mockResolvedValue({
-                headers: {},
-                status: 200,
-                url: '',
-                data: {
-                    artifacts: [createArtifact({ id: artifactId, name: artifactName })],
-                    total_count: 1
-                },
+                data: Buffer.from('artifact fixture'),
             });
 
-            const result = await asset.copyTo(targetDir);
+            const downloadLog = vitest.spyOn(console, 'debug').mockImplementation(() => {});
+            try {
+                const result = await asset.copyTo(targetDir);
 
-            expect(result).toBe(targetDir);
-            expect(asset.downloadArtifact).toHaveBeenCalledWith(artifactId, expect.any(String));
-            expect(asset.extractArchive).toHaveBeenCalledWith(asset.downloadArtifact.mock.calls[0][1], targetDir);
+                expect(result).toBe(targetDir);
+                expect(asset.downloadArtifact).toHaveBeenCalledWith(artifactId, expect.any(String));
+                expect(asset.extractArchive).toHaveBeenCalledWith(asset.downloadArtifact.mock.calls[0][1], targetDir);
+                expect(downloadLog).toHaveBeenCalledExactlyOnceWith(`Downloading ${artifactName} from ${sourceUrl}`);
+                expect(octokitMock.rest.actions.listWorkflowRuns).toHaveBeenCalledTimes(1);
+                expect(octokitMock.rest.actions.listWorkflowRunArtifacts).toHaveBeenCalledTimes(1);
+            } finally {
+                downloadLog.mockRestore();
+            }
         });
 
         it('reports repo and workflow when no matching non-expired artifact exists', async () => {

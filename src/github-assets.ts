@@ -317,19 +317,14 @@ export class GitHubWorkflowAsset extends GitHubAsset {
         throw new Error(`No non-expired artifact found matching ${String(this.artifactName)} in ${this.owner}/${this.repo} workflow ${this.workflow} (checked latest successful runs: ${checkedRunNumbers})`);
     }
 
-    /** Downloads a workflow artifact on a cache miss and logs its stable GitHub API URL. */
+    /** Downloads a workflow artifact on a cache miss and logs its name and browser-visible source run. */
     protected async downloadArtifact(id: number, downloadFilePath: string) {
         if (!await this.assureFile(downloadFilePath)) {
             const octokit = await this.getOctokit();
-            const parameters: RestEndpointMethodTypes['actions']['downloadArtifact']['parameters'] = {
-                ...this.repoAndOwner,
-                artifact_id: id,
-                archive_format: 'zip',
-            };
-            const { url } = octokit.rest.actions.downloadArtifact.endpoint(parameters);
-            console.debug(`Downloading ${url} ...`);
+            const { run, artifact } = await this.lastWorkflowRunArtifact;
+            console.debug(`Downloading ${artifact.name} from ${run.html_url}`);
 
-            const response = await octokit.rest.actions.downloadArtifact(parameters);
+            const response = await octokit.rest.actions.downloadArtifact({ ...this.repoAndOwner, artifact_id: id, archive_format: 'zip' });
             await fs.mkdir(path.dirname(downloadFilePath), { recursive: true });
             await fs.writeFile(downloadFilePath, Buffer.from(response.data as ArrayBuffer));
         }
@@ -346,13 +341,13 @@ export class GitHubWorkflowAsset extends GitHubAsset {
             .then(({ run }) => `${this.owner}/${this.repo}/${this.workflow}/${run.id}`);
     }
 
+    /** Downloads and extracts the selected workflow artifact, with source logging handled by the download. */
     public async copyTo(dest?: string) {
         const temp = await this.mkTempDir();
 
-        const { run, artifact } = await this.lastWorkflowRunArtifact;
+        const { artifact } = await this.lastWorkflowRunArtifact;
 
         const artifactDownloadPath = path.join(temp, `${artifact.name}.zip`);
-        console.debug(`Downloading artifact ${artifact.name} from ${this.workflow}@${run.run_number} ...`);
 
         await this.downloadArtifact(artifact.id, artifactDownloadPath);
 
